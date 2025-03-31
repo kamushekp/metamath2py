@@ -49,6 +49,9 @@ This process typically takes less than a minute on an Intel Core i7.
 
 ---
 
+### Examples.
+In folder 'Examples' you may find several statements translated to .py, and corresponding proofs. Full dataset available on Hugginface.
+
 ## License
 
 Metamath2Py is open-source software released under the MIT license.
