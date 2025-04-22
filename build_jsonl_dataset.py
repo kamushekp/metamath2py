@@ -12,7 +12,7 @@ if __name__ == '__main__':
     handler = MetamathHandler()
     mm = MM()
     results = []
-    metamath_path = r'C:\Users\kamus\PycharmProjects\metamath\set_normal.mm'
+    metamath_path = r'C:\Users\kamus\PycharmProjects\metamath\set_normal.mm' #change it for your path!
     toks = Toks(metamath_path)
 
     with open('metamath2py.jsonl', "a+") as f:
