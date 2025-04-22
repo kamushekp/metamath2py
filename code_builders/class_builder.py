@@ -1,10 +1,10 @@
 import re
 from typing import List
 
-from mmverify.code_builders.postprocessor import replace_class_variables
-from mmverify.code_builders.pythonic_names_handler import PythonicNamesHandler
-from mmverify.models.errors import MMError
-from mmverify.models.mm_models import EssentialHyp, FloatingHyp, Statement, StatementType, Assertion
+from code_builders.postprocessor import replace_class_variables
+from code_builders.pythonic_names_handler import PythonicNamesHandler
+from models.errors import MMError
+from models.mm_models import EssentialHyp, FloatingHyp, Statement, StatementType, Assertion
 
 tabs_4 = '    '
 tabs_8 = '        '
@@ -49,10 +49,10 @@ class {NAME}_proof({NAME}):
 
 
 
-
+pythonic_name_handler = PythonicNamesHandler()
 class ClassBuilder:
     def __init__(self):
-        self.pythonic_name_handler = PythonicNamesHandler()
+        self.pythonic_name_handler = pythonic_name_handler
 
         self._COMMENT = None
         self._NAME = None
@@ -219,8 +219,6 @@ class ClassBuilder:
             self._LAST_STEP = ''
 
         imported_statements = ClassBuilder.build_imports(self._NAME, self._IMPORTED_STATEMENTS)
-
-
 
         FLOATING_ARGS = FLOATING_ARGS_PATTERN.format(
             NAME=self._NAME,

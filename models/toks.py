@@ -1,6 +1,6 @@
 from typing import Tuple, Optional
 
-from mmverify.models.errors import MMError
+from models.errors import MMError
 
 
 class Toks:

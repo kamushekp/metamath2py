@@ -2,11 +2,11 @@ from typing import Optional, Dict, Iterable
 
 from tqdm import tqdm
 
-from mmverify.code_builders.class_builder import ClassBuilder
-from mmverify.code_builders.verifier import verify
-from mmverify.models.frame import Frame
-from mmverify.models.frame_stack import FrameStack
-from mmverify.models.mm_models import (StatementType,
+from code_builders.class_builder import ClassBuilder
+from code_builders.verifier import verify
+from models.frame import Frame
+from models.frame_stack import FrameStack
+from models.mm_models import (StatementType,
                                        Statement,
                                        Symbol,
                                        Const,
@@ -14,8 +14,8 @@ from mmverify.models.mm_models import (StatementType,
                                        Label,
                                        FullStatement,
                                        FloatingHyp)
-from mmverify.models.toks import Toks
-from mmverify.models.errors import MMError, UnknownTokenError, LabelMultipleDefinedError, \
+from models.toks import Toks
+from models.errors import MMError, UnknownTokenError, LabelMultipleDefinedError, \
     UnexpectedClosingBracketError, LabelNotDefinedError, StatementLengthIncorrectError
 
 

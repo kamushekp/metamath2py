@@ -2,7 +2,7 @@ import json
 import os
 import shutil
 
-from mmverify.paths import classes_folder_path, proofs_folder_path, mmverify_output_folder
+from paths import classes_folder_path, proofs_folder_path, mmverify_output_folder
 
 
 def write_to_files(name, executable_class, executable_proof):
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     shutil.copy2('__init__.py', classes_folder_path)
     shutil.copy2('__init__.py', proofs_folder_path)
 
-    with open('hugginface_dataset.json', "r") as f:
+    with open('metamath2py.jsonl', "r") as f:
         for line in f:
             model = json.loads(line.rstrip())
             executable_class = model['executable_class']

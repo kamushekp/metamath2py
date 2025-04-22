@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from mmverify.models.mm_models import Statement
+from models.mm_models import Statement
 
 
 @dataclass

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from mmverify.paths import class_variables_path
+from paths import class_variables_path
 
 
 def replace_class_variables(text: str):

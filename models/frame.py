@@ -1,8 +1,8 @@
 import itertools
 from typing import Iterable
 
-from mmverify.models.mm_models import Var, FloatingHyp, Label, EssentialHyp, Definition, Statement
-from mmverify.models.dict_with_colisions import DictWithCollisions
+from models.mm_models import Var, FloatingHyp, Label, EssentialHyp, Definition, Statement
+from models.dict_with_colisions import DictWithCollisions
 
 
 class Frame:

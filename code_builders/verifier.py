@@ -1,21 +1,21 @@
 import itertools
 
-from mmverify.code_builders.assertion_or_provable_line_builder import AssertionOrProvableLineBuilder
-from mmverify.code_builders.class_builder import ClassBuilder
-from mmverify.models.frame_stack import FrameStack
-from mmverify.models.marked_stack import MarkedStackSample, MarkedStack
-from mmverify.models.mm_models import StatementType, Statement, Var, Label, FullStatement
-from mmverify.code_builders.substitution import apply_subst
-from mmverify.models.errors import (DisjointVariableError,
-                                    StackEssentialError,
-                                    StackFloatingError,
-                                    StackUnderflowError,
-                                    LabelNotActiveError,
-                                    LabelNotFoundError,
-                                    CompressedProofsError,
-                                    EmptyStackError,
-                                    OverfullStackError,
-                                    NonMatchingStackError)
+from code_builders.assertion_or_provable_line_builder import AssertionOrProvableLineBuilder
+from code_builders.class_builder import ClassBuilder
+from models.frame_stack import FrameStack
+from models.marked_stack import MarkedStackSample, MarkedStack
+from models.mm_models import StatementType, Statement, Var, Label, FullStatement
+from code_builders.substitution import apply_subst
+from models.errors import (DisjointVariableError,
+                           StackEssentialError,
+                           StackFloatingError,
+                            StackUnderflowError,
+                           LabelNotActiveError,
+                           LabelNotFoundError,
+                            CompressedProofsError,
+                           EmptyStackError,
+                           OverfullStackError,
+                           NonMatchingStackError)
 
 
 def assert_proof(conclusion, stack: MarkedStack):

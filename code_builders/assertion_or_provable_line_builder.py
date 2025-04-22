@@ -1,13 +1,14 @@
 from typing import List
 
-from mmverify.code_builders.pythonic_names_handler import PythonicNamesHandler
-from mmverify.models.marked_stack import MarkedStackSample
-from mmverify.models.mm_models import Statement, FloatingHyp, Var
+from code_builders.pythonic_names_handler import PythonicNamesHandler
+from models.marked_stack import MarkedStackSample
+from models.mm_models import Statement, FloatingHyp, Var
 
+pythonic_name_handler = PythonicNamesHandler()
 
 class AssertionOrProvableLineBuilder:
     def __init__(self):
-        self.pythonic_name_handler = PythonicNamesHandler()
+        self.pythonic_name_handler = pythonic_name_handler
 
         self._added_mark = None
         self._comment = None

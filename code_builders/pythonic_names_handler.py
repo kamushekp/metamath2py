@@ -1,7 +1,7 @@
 import random
 import string
 
-from mmverify.paths import pythonic_names_map_path
+from paths import pythonic_names_map_path
 
 
 def generate_unique_name(length, exclusions):

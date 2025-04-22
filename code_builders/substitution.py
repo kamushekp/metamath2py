@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import List
 
-from mmverify.models.marked_stack import MarkedStackSample
-from mmverify.models.mm_models import Statement, Symbol, Var
+from models.marked_stack import MarkedStackSample
+from models.mm_models import Statement, Symbol, Var
 
 
 @dataclass

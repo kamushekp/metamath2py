@@ -1,8 +1,8 @@
 import itertools
 from typing import Optional
 
-from mmverify.models.frame import Frame
-from mmverify.models.mm_models import Var, Label, Definition, Statement, Assertion
+from models.frame import Frame
+from models.mm_models import Var, Label, Definition, Statement, Assertion
 
 
 class FrameStack(list[Frame]):

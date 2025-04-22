@@ -1,9 +1,9 @@
 import os
-import sys
 
 from tqdm import tqdm
 
-from mmverify.paths import proofs_folder_path
+from paths import proofs_folder_path
+
 
 def enumerate_proofs_names():
     for dirpath, dnames, fnames in os.walk(proofs_folder_path):
