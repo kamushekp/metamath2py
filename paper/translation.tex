@@ -1,0 +1,189 @@
+\section{Translation from Metamath to Python}  
+\hspace{\parindent}
+Our approach is based on the \texttt{mmverify.py} project \cite{mmverify}, a Metamath verifier written in Python.
+Originally, \texttt{mmverify.py} was designed to read theorems symbol-by-symbol from \texttt{.mm} files, which store
+formal proofs in the Metamath system, and then verify their correctness. More precisely, the following
+functionalities were of interest to us:
+
+\textbf{When parsing .mm files, occurs extraction of:}
+\begin{itemize}
+    \item \textit{Floating hypotheses}: variables declared with the \texttt{\$f} token;
+    \item \textit{Essential hypotheses}: logical assumptions introduced using the \texttt{\$e} token;
+    \item \textit{Proof bodies}: defined by \texttt{\$a} (for axiomatic statements) and
+    \texttt{\$p} (for provable statements);
+\end{itemize}  
+
+\textbf{Proof Verification:}  
+\texttt{mmverify.py} sequentially processes proof steps using substitutions and checks whether the final step matches the expected assertion. This ensures automatic proof validation, both in normal and compressed formats.  
+
+Our work extends the original project by modifying it to translate formal Metamath proofs into executable Python
+objects aligned with our abstractions. The key transformations include the following.
+
+\subsection{Mapping Metamath Abstractions to Python}  
+
+The core Metamath concepts (floating hypotheses, essential hypotheses, assertions, and proofs) remain unchanged,
+following their definitions in the Metamath book \cite{metamath}.
+However, syntactic possibilities of describing abstractions introduce challenges. Metamath allows names with
+characters that are not valid in Python (e.g., hyphens, dots, or operator-like sequences such as \texttt{.(+)} for
+summation). It is also worth noting that the names of metamafs are characterized by a partial match issue (for
+example, the \texttt{idi} and \texttt{id} theorems)
+To address this, we map such names to randomly generated identifiers while maintaining a mapping dictionary for reversibility.  
+
+We define the following classes:  
+\begin{itemize}
+    \item A class for \textit{floating arguments}, representing variables declared in Metamath with \texttt{\$f};
+    \item A class for \textit{essential arguments}, corresponding to logical hypotheses defined by \texttt{\$e};
+    \item A class for \textit{assertions} (\texttt{\$p}/\texttt{\$a} in Metamath), storing the final expression that
+    must be derived through proof steps;
+    \item A class for \textit{proofs}, organizing proof steps where each step invokes a method performing
+    substitution and hypothesis validation.
+\end{itemize}  
+
+\subsection{Example of Mapping}
+
+We use the \texttt{metamath.exe} tool to read the \texttt{set.mm} file with the \texttt{/normal} modifier.  
+The theorem \texttt{mpsylsyld} (Modus Ponens combined with double syllogism inference) is recorded in the following form:  
+
+\begin{verbatim}
+    mpsylsyld.1 $e |- ph $.
+    mpsylsyld.2 $e |- ( ps -> ( ch -> th ) ) $.
+    mpsylsyld.3 $e |- ( ph -> ( th -> ta ) ) $.
+    $( Modus ponens combined with a double syllogism inference. $)
+    mpsylsyld $p |- ( ps -> ( ch -> ta ) ) $=
+    wps wph wch wth wta wph wps mpsylsyld.1 a1i
+    mpsylsyld.2 mpsylsyld.3
+    sylsyld $.
+\end{verbatim}
+
+The first three lines represent \textit{essential hypotheses}, followed by a comment, then the conclusion (assertion),
+and finally, the proof written in reverse Polish notation (last three lines).
+
+In our dataset, this theorem is named \textit{A0K0} (a randomly assigned identifier) and is represented as follows:
+
+\newpage
+\begin{verbatim}
+from typing import TypedDict
+from metamath2py.classes.apply_substitution_for_generated_files import apply_substitution
+
+class A0K0_FloatingArgs(TypedDict):
+    ph: str
+    ps: str
+    ch: str
+    th: str
+    ta: str
+
+class A0K0_EssentialArgs(TypedDict):
+    essential_1: str
+    essential_2: str
+    essential_3: str
+
+
+class A0K0:
+    """"""
+    def __init__(self):
+        self.essential_1 = r"""|- ph"""
+        self.essential_2 = r"""|- ( ps -> ( ch -> th ) )"""
+        self.essential_3 = r"""|- ( ph -> ( th -> ta ) )"""
+
+        self.assertion = r"""|- ( ps -> ( ch -> ta ) )"""
+
+    def call(self, floatings: A0K0_FloatingArgs, essentials: A0K0_EssentialArgs):
+        essential_1_substituted = apply_substitution(self.essential_1, floatings)
+        if "essential_1" not in essentials:
+            raise Exception("essential_1 must be in essentials")
+        if essentials["essential_1"] != essential_1_substituted:
+            raise Exception(f'essentials["essential_1"] must be equal '
+                            f'{essential_1_substituted} '
+                            f'but was {essentials["essential_1"]}')
+        <skipped lines for essential_2 and essential_3, they are the similar>
+        return assertion_substituted
+\end{verbatim}
+
+The method \textit{apply\_substitution} performs the substitution of floating argument values into
+the essential hypotheses of the theorem.
+
+In the \textit{Call} method, floating arguments are substituted into the essential hypotheses of the statement,
+which are declared as members of the class \textit{A0K0}.
+\begin{itemize}
+    \item If the essential hypotheses provided as arguments do not match the class-defined essential hypotheses, an exception is raised.
+    \item If the essential hypotheses passed as arguments do not match those obtained after substitution, an exception is raised.
+    \item If all checks pass, the method returns the statement with the floating arguments substituted.
+\end{itemize}
+
+The proof of a statement is also represented as a Python class that defines the steps of the proof:
+
+
+\begin{verbatim}
+
+from metamath2py.classes.A0K0 import A0K0
+from metamath2py.classes.VLEL import VLEL
+from metamath2py.classes.SW6P import SW6P
+
+class A0K0_proof(A0K0):
+def proof(self):
+    x_1 = "wff ps"
+    x_2 = "wff ph"
+    x_3 = "wff ch"
+    x_4 = "wff th"
+    x_5 = "wff ta"
+    x_6 = "wff ph"
+    x_7 = "wff ps"
+    x_8 = self.essential_1
+    x_9 = VLEL().call(
+        {
+            "ph": x_6,
+            "ps": x_7
+        },
+        {
+            "essential_1": x_8
+        }
+    )
+    x_10 = self.essential_2
+    x_11 = self.essential_3
+    x_12 = SW6P().call(
+        {
+            "ph": x_1,
+            "ps": x_2,
+            "ch": x_3,
+            "th": x_4,
+            "ta": x_5
+        },
+        {
+            "essential_1": x_9,
+            "essential_2": x_10,
+            "essential_3": x_11
+        }
+    )
+
+    if x_12 != self.assertion:
+        raise Exception(f"x_12 was equal {x_12}, "
+                        f"but expected it to be equal "
+                        f"to assertion: {self.assertion}")
+\end{verbatim}
+
+
+In the process of proof, other statements and their corresponding method \textit{Call} can be used, for example:
+
+\begin{verbatim}
+from metamath2py.classes.VLEL import VLEL
+...
+x_9 = VLEL().call(
+    {
+        "ph": x_6,
+        "ps": x_7
+    },
+    {
+        "essential_1": x_8
+    }
+)
+...
+\end{verbatim}
+
+
+It is important to note that during the proof process, declared variables are used only once. This is consistent with the practice of using reverse Polish notation in the proof of Metamath.
+
+At the end the result value at last step is compared with the assertion of the class. If the comparison
+fails, an
+exception is thrown. Otherwise, the statement is considered proven.
+
+

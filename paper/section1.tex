@@ -1,0 +1,20 @@
+\section{Justification for Creating the Dataset}
+\hspace{\parindent}
+Large language models (LLMs) have demonstrated strong performance in natural language processing and complex
+reasoning tasks. However, several studies show that their effectiveness significantly depends on the amount and
+quality of training data. In particular, state-of-the-art models such as ChatGPT tend to perform best on languages
+and tasks that are well represented in their training corpus, while their performance noticeably drops in
+low-resource domains~\cite{chatgpt_mt, low_resource_biomedicine}.
+
+For example, \cite{chatgpt_multilingual} analyzes model performance across tasks such as named entity recognition,
+question answering, common-sense reasoning, and summarization, highlighting the importance of data availability.
+Similarly, \cite{dont_stop_pretraining} suggests that continued training on a specialized domain - both at the Domain-Adaptive Pretraining and Task-Adaptive Pretraining stages - can significantly improve model performance.
+
+These observations motivate the creation of better datasets for underrepresented domains, including formal mathematics. Although the Metamath system encodes a large body of formalized mathematical knowledge, it does not offer a structured dataset suitable for use in machine learning pipelines. From the perspective of LLM-based applications, we consider the Metamath language to be a low-resource case.
+
+In addition, the compact and unusual syntax of Metamath presents a further challenge. Applying LLMs effectively to tasks involving such syntax requires embedding not only the semantics of a problem, but also the syntax itself into the prompt. This increases prompt length and, in longer contexts, raises the risk of information loss~\cite{lost_in_middle, babilong, whatsrealcontext}. Understanding the syntax is also beneficial for performing and analyzing intermediate reasoning steps, as shown in~\cite{show_your_work}.
+
+Translating proofs into a more familiar syntax - for example, using Python-style function calls - reduces the
+required prompt size and helps models focus on higher-level reasoning. Our dataset is designed with this in mind and may be valuable not only for prompting but also for fine-tuning models at various stages of the training pipeline.
+
+
