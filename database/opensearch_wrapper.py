@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
@@ -347,11 +348,13 @@ class TheoremSearchClient:
     def _expand_highlight(self, rel_path: Optional[str], fragment: str, *, window: int) -> str:
         if not rel_path:
             return fragment
-        anchor = _strip_highlight_markup(fragment)
-        context = self.get_context_by_anchor(rel_path, anchor, window=window)
-        if context is None:
-            return fragment
-        return context["text"]
+
+        for anchor in _highlight_anchor_candidates(fragment):
+            context = self.get_context_by_anchor(rel_path, anchor, window=window)
+            if context is not None:
+                return context["text"]
+
+        return fragment
 
     def _build_context_from_file(self, rel_path: Optional[str], *, window: int) -> Optional[str]:
         if not rel_path:
@@ -452,4 +455,30 @@ def _strip_highlight_markup(fragment: str) -> str:
     """Remove OpenSearch highlight markup from ``fragment``."""
 
     return fragment.replace("<em>", "").replace("</em>", "")
+
+
+def _highlight_anchor_candidates(fragment: str) -> List[str]:
+    """Yield progressively shorter anchors derived from ``fragment``."""
+
+    plain_fragment = _strip_highlight_markup(fragment)
+    candidates: List[str] = []
+    if plain_fragment:
+        candidates.append(plain_fragment)
+        for line in plain_fragment.splitlines():
+            stripped = line.strip()
+            if stripped:
+                candidates.append(stripped)
+
+    for match in re.findall(r"<em>(.*?)</em>", fragment):
+        token = match.strip()
+        if token:
+            candidates.append(token)
+
+    seen: Dict[str, None] = {}
+    unique_candidates: List[str] = []
+    for candidate in candidates:
+        if candidate not in seen:
+            seen[candidate] = None
+            unique_candidates.append(candidate)
+    return unique_candidates
 
