@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import types
 from pathlib import Path
 from typing import Iterator
 
@@ -17,7 +18,11 @@ pytest.importorskip(
     reason="opensearch-py is required to exercise the OpenSearch wrapper.",
 )
 
-from database.opensearch_wrapper import SearchResult, TheoremSearchClient
+from database.opensearch_wrapper import (
+    SearchResult,
+    TheoremSearchClient,
+    _highlight_anchor_candidates,
+)
 
 
 @pytest.fixture(scope="module")
@@ -85,4 +90,32 @@ def test_anchor_context_retrieval(search_client: TheoremSearchClient) -> None:
     assert context is not None
     assert "class B" in context["text"]
     assert context["end_line"] - context["start_line"] <= 20
+
+
+def test_highlight_anchor_candidates_include_em_tokens() -> None:
+    """Highlighted fragments should yield anchors for emphasized tokens."""
+
+    fragment = '<em>A1WQA_proof</em>(A1WQA):\n    def proof(self):\n        x_1 = "<em>class</em> A"'
+    candidates = _highlight_anchor_candidates(fragment)
+    assert "A1WQA_proof(A1WQA):" in candidates
+    assert "def proof(self):" in candidates
+    assert "A1WQA_proof" in candidates
+
+
+def test_expand_highlight_falls_back_to_emphasized_token() -> None:
+    """When the raw fragment fails, emphasized tokens should anchor the context."""
+
+    fragment = '<em>A1WQA_proof</em>(A1WQA):\n    def proof(self):'
+
+    client = TheoremSearchClient.__new__(TheoremSearchClient)
+
+    def fake_get_context(self: TheoremSearchClient, rel_path: str, anchor: str, *, window: int):
+        if anchor == "A1WQA_proof":
+            return {"text": "class A1WQA_proof(A1WQA):\n    def proof(self):"}
+        return None
+
+    client.get_context_by_anchor = types.MethodType(fake_get_context, client)
+
+    expanded = client._expand_highlight("dummy/path.py", fragment, window=10)
+    assert "class A1WQA_proof" in expanded
 
