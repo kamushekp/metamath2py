@@ -150,14 +150,50 @@ class TheoremSearchClient:
 
     def _index_mapping(self) -> Dict[str, object]:
         return {
+            "settings": {
+                "analysis": {
+                    "analyzer": {
+                        "code_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "code_tokenizer",
+                            "filter": ["code_shingle"],
+                        },
+                        "code_search_analyzer": {
+                            "type": "custom",
+                            "tokenizer": "code_tokenizer",
+                            "filter": ["code_shingle"],
+                        },
+                    },
+                    "tokenizer": {
+                        "code_tokenizer": {
+                            "type": "pattern",
+                            "pattern": "[^A-Za-z0-9_]+",
+                        }
+                    },
+                    "filter": {
+                        "code_shingle": {
+                            "type": "shingle",
+                            "min_shingle_size": 2,
+                            "max_shingle_size": 3,
+                            "output_unigrams": True,
+                            "token_separator": " ",
+                        }
+                    },
+                }
+            },
             "mappings": {
                 "properties": {
                     "path": {"type": "keyword"},
                     "category": {"type": "keyword"},
-                    "content": {"type": "text"},
+                    "content": {
+                        "type": "text",
+                        "analyzer": "code_analyzer",
+                        "search_analyzer": "code_search_analyzer",
+                        "term_vector": "with_positions_offsets",
+                    },
                     "line_count": {"type": "integer"},
                 }
-            }
+            },
         }
 
     def _collect_dataset_state(self) -> Dict[str, object]:
@@ -223,6 +259,7 @@ class TheoremSearchClient:
         top_k: int = 5,
         context_window: int = 40,
         highlight: bool = True,
+        phrase_slop: int = 1,
     ) -> List[SearchResult]:
         """Execute a semantic search query and return matches.
 
@@ -236,14 +273,35 @@ class TheoremSearchClient:
             Number of lines to return around the first match for each result.
         highlight:
             When ``True`` the snippet will include basic highlight markup.
+        phrase_slop:
+            Maximum allowed distance between tokens when evaluating phrase matches.
         """
 
         body = {
             "size": top_k,
             "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": ["content^3", "path"],
+                "bool": {
+                    "should": [
+                        {
+                            "match": {
+                                "content": {
+                                    "query": query,
+                                    "boost": 4.0,
+                                }
+                            }
+                        },
+                        {
+                            "match_phrase": {
+                                "content": {
+                                    "query": query,
+                                    "slop": max(0, phrase_slop),
+                                    "boost": 6.0,
+                                }
+                            }
+                        },
+                        {"match": {"path": {"query": query, "boost": 1.5}}},
+                    ],
+                    "minimum_should_match": 1,
                 }
             },
         }
