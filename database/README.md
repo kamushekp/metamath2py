@@ -11,15 +11,7 @@ and fetch focused context windows around interesting proof steps.
 # From the repository root
 cd database
 docker build -t metamath-opensearch .
-docker run \
-  --rm \
-  --name metamath-opensearch \
-  -p 9200:9200 \
-  -e "discovery.type=single-node" \
-  -e "plugins.security.disabled=true" \
-  -e "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" \
-  -v "$(pwd)/data:/usr/share/opensearch/data:Z" \
-  metamath-opensearch
+docker run --rm --name metamath-opensearch -p 9200:9200 -e "discovery.type=single-node" -e "plugins.security.disabled=true" -e "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m" -v "$(pwd)/data:/usr/share/opensearch/data:Z" metamath-opensearch
 ```
 
 Once the container is online you can run the integration tests:

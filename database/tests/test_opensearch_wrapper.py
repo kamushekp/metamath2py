@@ -68,7 +68,7 @@ def test_search_returns_relevant_snippet(search_client: TheoremSearchClient) -> 
 def test_search_preserves_identifier_integrity(search_client: TheoremSearchClient) -> None:
     """Identifiers with underscores should remain searchable as a unit."""
 
-    results = search_client.search("class A1WQA_proof", top_k=3)
+    results = search_client.search("class A1WQA_proof", top_k=3, phrase_slop=0)
     assert results, "Expected at least one search result"
     assert "class A1WQA_proof" in (results[0].snippet or "")
 
