@@ -28,9 +28,6 @@ import traceback
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
-DEFAULT_PROOFS_PACKAGE = "metamath2py.proofs"
-
-
 @dataclass
 class ProofCheckResult:
     """Structured result of a proof verification attempt."""
@@ -57,7 +54,7 @@ def _format_traceback(exc: BaseException) -> str:
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
 
-def verify_proof(statement_name: str, *, package: str = DEFAULT_PROOFS_PACKAGE) -> ProofCheckResult:
+def verify_proof(statement_name: str, *, package: str) -> ProofCheckResult:
     """Import ``package.statement_name`` and execute its ``proof`` method.
 
     Parameters
@@ -70,7 +67,7 @@ def verify_proof(statement_name: str, *, package: str = DEFAULT_PROOFS_PACKAGE) 
         existing project layout.
     """
 
-    module_name = f"{package}.{statement_name}" if statement_name else package
+    module_name = f"{package}.{statement_name}"
     try:
         if module_name in sys.modules:
             module = importlib.reload(sys.modules[module_name])
@@ -122,7 +119,7 @@ def verify_proof(statement_name: str, *, package: str = DEFAULT_PROOFS_PACKAGE) 
     return ProofCheckResult(statement_name=statement_name, success=True, stage="success")
 
 
-def iter_statement_names(root_path: str, *, package: str = DEFAULT_PROOFS_PACKAGE) -> Iterable[str]:
+def iter_statement_names(root_path: str) -> Iterable[str]:
     """Yield module names relative to ``package`` for every ``.py`` file."""
 
     if not os.path.isdir(root_path):
@@ -138,7 +135,7 @@ def iter_statement_names(root_path: str, *, package: str = DEFAULT_PROOFS_PACKAG
             yield module
 
 
-def verify_all_proofs(root_path: str, *, package: str = DEFAULT_PROOFS_PACKAGE) -> List[ProofCheckResult]:
+def verify_all_proofs(root_path: str, *, package: str) -> List[ProofCheckResult]:
     """Verify every proof contained in ``root_path``."""
 
     results: List[ProofCheckResult] = []

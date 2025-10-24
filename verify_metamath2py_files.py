@@ -1,21 +1,11 @@
 import os
 from pathlib import Path
 
-try:  # pragma: no cover - tqdm is optional in lightweight environments
-    from tqdm import tqdm
-except ImportError:  # pragma: no cover
-    def tqdm(iterable, *args, **kwargs):  # type: ignore[misc]
-        return iterable
+from tqdm import tqdm
 
-try:
-    from paths import proofs_folder_path  # type: ignore
-except ModuleNotFoundError:
-    proofs_folder_path = Path(__file__).resolve().parent / "proofs"
+from paths import proofs_folder_path, PathsEnum
 
-try:
-    from metamath2py.verification import iter_statement_names, verify_proof
-except ModuleNotFoundError:
-    from verification import iter_statement_names, verify_proof  # type: ignore
+from verification import iter_statement_names, verify_proof
 
 
 if __name__ == '__main__':
@@ -23,8 +13,9 @@ if __name__ == '__main__':
         raise SystemExit(f"Proofs folder '{proofs_folder_path}' does not exist")
 
     failures = []
-    for statement_name in tqdm(list(iter_statement_names(str(proofs_folder_path)))):
-        result = verify_proof(statement_name)
+    for statement_name in tqdm(iter_statement_names(root_path=proofs_folder_path)):
+        package = f"{PathsEnum.metamath2py_folder_name}.{PathsEnum.proofs_folder_name}"
+        result = verify_proof(statement_name=statement_name, package=package)
         if not result.success:
             failures.append(result)
             print(f"\n[FAIL] {statement_name} ({result.stage})")
