@@ -1,8 +1,12 @@
 # Standard library
 from typing import Optional
 
-# Third party
-import json_repair
+# Third party (optional at import time)
+try:  # pragma: no cover - optional dependency
+    import json_repair  # type: ignore
+except Exception:  # pragma: no cover
+    json_repair = None
+    import json as _json
 
 # Local
 try:
@@ -21,7 +25,13 @@ class Evaluation(object):
 
     @classmethod
     def from_message(cls, message: Message) -> "Evaluation":
-        arguments = json_repair.loads(message.content)
+        if json_repair is not None:
+            arguments = json_repair.loads(message.content)
+        else:
+            try:
+                arguments = _json.loads(message.content)
+            except Exception:
+                arguments = {"score": 5, "reasoning": message.content}
         reasoning = arguments.get("reasoning", "")
         score = arguments.get("score", 5)
         score = max(0, min(score, 10))  # Ensures score is between 0 and 10

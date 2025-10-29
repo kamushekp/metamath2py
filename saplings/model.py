@@ -1,5 +1,19 @@
-# Third party
-from litellm import acompletion, get_max_tokens, token_counter, encode
+"""Model/runtime driver for Saplings agents.
+
+Defaults to LiteLLM for tool-call generation, but can be replaced with an
+OpenAI Agents SDK-backed implementation in the future without changing agent
+interfaces. Import of LiteLLM is lazy/guarded to avoid hard dependency at
+import time.
+"""
+
+# Third party (optional at import-time)
+try:  # pragma: no cover - optional dependency
+    from litellm import acompletion, get_max_tokens, token_counter, encode
+except Exception:  # pragma: no cover
+    acompletion = None
+    get_max_tokens = None
+    token_counter = None
+    encode = None
 
 # Local
 try:
@@ -64,12 +78,18 @@ class Model(object):
         self.kwargs = kwargs
 
     def get_context_window(self) -> int:
+        if get_max_tokens is None:
+            raise ImportError("litellm is required for the default Model runtime")
         return get_max_tokens(self.model)
 
     def count_tokens(self, text: str) -> int:
+        if encode is None:
+            raise ImportError("litellm is required for the default Model runtime")
         return len(encode(model=self.model, text=text))
 
     def count_message_tokens(self, message: Message) -> int:
+        if token_counter is None:
+            raise ImportError("litellm is required for the default Model runtime")
         return token_counter(model=self.model, messages=[message.to_openai_message()])
 
     def count_tool_tokens(self, tool: Tool) -> int:
@@ -167,6 +187,8 @@ class Model(object):
             parallel_tool_calls,
             response_format,
         )
+        if acompletion is None:
+            raise ImportError("litellm is required for the default Model runtime")
         response = await acompletion(**{**completion_params, **self.kwargs})
         if not stream:
             if n == 1:

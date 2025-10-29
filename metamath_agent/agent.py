@@ -16,8 +16,8 @@ from saplings.model import Model
 from database.opensearch_wrapper import TheoremSearchClient
 
 from .config import AgentConfig
-from .tools import SearchTheoremsTool, VerifyProofTool
-from .evaluators import ProofEvaluator
+from saplings.tools.metamath_tools import SearchTheoremsTool, VerifyProofTool
+from saplings.evaluators import ProofEvaluator
 
 
 def _make_tools(cfg: AgentConfig) -> list:
@@ -118,4 +118,3 @@ def run_proof_search(goal: str, cfg: AgentConfig, *, out_dir: Path | None = None
                 fp.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     return messages, score, is_solution, out_root
-

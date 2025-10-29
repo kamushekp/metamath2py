@@ -1,8 +1,7 @@
-try:
-    from saplings.model import Model
-    from saplings.evaluator import Evaluator
-    from saplings.agents import AStarAgent, GreedyAgent, MonteCarloAgent, COTAgent
-except ImportError:
-    from model import Model
-    from evaluator import Evaluator
-    from agents import AStarAgent, GreedyAgent, MonteCarloAgent, COTAgent
+"""Saplings core package.
+
+This package exposes search agents and DTOs. Heavy runtime dependencies are
+imported lazily inside submodules to avoid import-time failures.
+"""
+
+__all__ = []

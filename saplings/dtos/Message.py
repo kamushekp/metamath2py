@@ -1,8 +1,12 @@
 # Standard library
 from typing import List, Union
 
-# Third party
-import json_repair
+# Third party (optional at import time)
+try:  # pragma: no cover - optional dependency
+    import json_repair  # type: ignore
+except Exception:  # pragma: no cover
+    json_repair = None
+    import json as _json
 
 # Local
 try:
@@ -66,7 +70,15 @@ class Message(object):
         if hasattr(message, "tool_calls") and message.tool_calls:
             tool_calls = []
             for tool_call in message.tool_calls:
-                args = json_repair.loads(tool_call.function.arguments)
+                raw_args = tool_call.function.arguments
+                if json_repair is not None:
+                    args = json_repair.loads(raw_args)
+                else:
+                    try:
+                        args = _json.loads(raw_args)
+                    except Exception:
+                        # Best-effort fallback: pass raw string
+                        args = {"_raw": raw_args}
                 tool_call = ToolCall(tool_call.id, tool_call.function.name, args)
                 tool_calls.append(tool_call)
 
