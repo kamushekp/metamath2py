@@ -139,6 +139,6 @@ def verify_all_proofs(root_path: str, *, package: str) -> List[ProofCheckResult]
     """Verify every proof contained in ``root_path``."""
 
     results: List[ProofCheckResult] = []
-    for statement_name in iter_statement_names(root_path, package=package):
+    for statement_name in iter_statement_names(root_path):
         results.append(verify_proof(statement_name, package=package))
     return results

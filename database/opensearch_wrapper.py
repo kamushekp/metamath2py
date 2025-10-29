@@ -15,13 +15,21 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class SearchResult:
-    """Container for a single search result."""
+    """Container for a single search result.
+
+    In addition to the snippet text, optionally includes the 1-based
+    ``start_line`` and ``end_line`` of the snippet within the source file when
+    that information is available (e.g. when context is derived from file
+    boundaries or an anchor).
+    """
 
     path: str
     score: float
     category: str
     line_count: int
     snippet: Optional[str] = None
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
 
 
 class TheoremSearchClient:
@@ -318,20 +326,42 @@ class TheoremSearchClient:
         for hit in response.get("hits", {}).get("hits", []):
             source = hit.get("_source", {})
             rel_path = source.get("path")
-            snippet = None
+            # Build snippet and (when available) its line bounds.
+            snippet_text: Optional[str] = None
+            start_line: Optional[int] = None
+            end_line: Optional[int] = None
+            highlight_fragment: Optional[str] = None
             if highlight:
-                snippet = self._extract_highlight(hit)
-            if snippet is None:
-                snippet = self._build_context_from_file(rel_path, window=context_window)
+                highlight_fragment = self._extract_highlight(hit)
+            if highlight_fragment is None:
+                context = self.get_context(rel_path, center_line=None, window=context_window)
+                if context is not None:
+                    snippet_text = context["text"]
+                    start_line = context.get("start_line")  # type: ignore[assignment]
+                    end_line = context.get("end_line")      # type: ignore[assignment]
             else:
-                snippet = self._expand_highlight(rel_path, snippet, window=context_window)
+                context = self._expand_highlight_with_context(
+                    rel_path, highlight_fragment, window=context_window
+                )
+                if context is not None:
+                    snippet_text = context["text"]
+                    start_line = context.get("start_line")  # type: ignore[assignment]
+                    end_line = context.get("end_line")      # type: ignore[assignment]
+                else:
+                    # Fall back to plain-text expansion when context metadata is
+                    # unavailable (keeps behaviour of existing callers/tests).
+                    snippet_text = self._expand_highlight(
+                        rel_path, highlight_fragment, window=context_window
+                    )
             results.append(
                 SearchResult(
                     path=rel_path,
                     score=hit.get("_score", 0.0),
                     category=source.get("category", "unknown"),
                     line_count=source.get("line_count", 0),
-                    snippet=snippet,
+                    snippet=snippet_text,
+                    start_line=start_line,
+                    end_line=end_line,
                 )
             )
         return results
@@ -355,6 +385,24 @@ class TheoremSearchClient:
                 return context["text"]
 
         return fragment
+
+    def _expand_highlight_with_context(
+        self, rel_path: Optional[str], fragment: str, *, window: int
+    ) -> Optional[Dict[str, object]]:
+        """Return context dict around ``fragment`` when possible.
+
+        Attempts to anchor the highlighted fragment in ``rel_path`` using a set
+        of progressively shorter anchors. Returns a structured context with
+        ``text``, ``start_line`` and ``end_line`` when successful, otherwise
+        ``None``.
+        """
+        if not rel_path:
+            return None
+        for anchor in _highlight_anchor_candidates(fragment):
+            context = self.get_context_by_anchor(rel_path, anchor, window=window)
+            if context is not None:
+                return context
+        return None
 
     def _build_context_from_file(self, rel_path: Optional[str], *, window: int) -> Optional[str]:
         if not rel_path:
@@ -420,10 +468,17 @@ class TheoremSearchClient:
                 return self.get_context(rel_path, center_line=idx, window=window)
         return None
 
-    def list_documents(self, *, category: Optional[str] = None) -> List[str]:
-        """List the indexed documents optionally filtered by category."""
+    def list_documents(self, *, category: Optional[str] = None, ensure_index: bool = False) -> List[str]:
+        """List indexed documents optionally filtered by category.
 
-        self.ensure_index()
+        By default this method will not create or update the index to respect
+        read-only workflows where the corpus is considered fixed. Pass
+        ``ensure_index=True`` to rebuild the index when it is missing or out of
+        date.
+        """
+
+        if ensure_index:
+            self.ensure_index()
         query: Dict[str, object]
         if category:
             query = {"term": {"category": category}}
@@ -449,6 +504,20 @@ class TheoremSearchClient:
         """Return ``True`` when OpenSearch responds to a ping request."""
 
         return bool(self.client.ping())
+
+    # ------------------------------------------------------------------ documents
+    def get_document_text(self, rel_path: str) -> Optional[str]:
+        """Return the full text of a document by its relative path.
+
+        This helper is convenient for agents that need to inspect the complete
+        contents of a candidate file discovered via :meth:`search` or
+        :meth:`list_documents`.
+        """
+        file_path = self._data_root / rel_path
+        if not file_path.exists():
+            LOGGER.warning("Document requested for missing file %s", rel_path)
+            return None
+        return file_path.read_text(encoding="utf-8")
 
 
 def _strip_highlight_markup(fragment: str) -> str:
