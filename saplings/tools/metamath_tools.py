@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from saplings.abstract.Tool import Tool
 
 from database.opensearch_wrapper import TheoremSearchClient
-from metamath2py.verification import verify_proof
+from verification import verify_proof
 
 
 class SearchTheoremsTool(Tool):

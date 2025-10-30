@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from metamath2py.verification import ProofCheckResult, verify_proof
+from verification import ProofCheckResult, verify_proof
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_CLASSES_DIR = PACKAGE_ROOT / "classes"
