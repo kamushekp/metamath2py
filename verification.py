@@ -27,14 +27,19 @@ import os
 import sys
 import traceback
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Iterable, List, Optional
 
-from paths import PROJECT_PATH, PathsEnum, proofs_folder_path
+from paths import PROJECT_PATH, PathsEnum, proofs_folder_path, classes_folder_path
 
 _DEFAULT_PROJECT_ROOT = os.path.abspath(os.fspath(PROJECT_PATH))
 _DEFAULT_PROOFS_ROOT = os.path.abspath(os.fspath(proofs_folder_path))
+_DEFAULT_CLASSES_ROOT = os.path.abspath(os.fspath(classes_folder_path))
 _DEFAULT_PROOFS_PACKAGE = (
     f"{PathsEnum.metamath2py_folder_name.value}.{PathsEnum.proofs_folder_name.value}"
+)
+_DEFAULT_CLASSES_PACKAGE = (
+    f"{PathsEnum.metamath2py_folder_name.value}.{PathsEnum.classes_folder_name.value}"
 )
 
 if _DEFAULT_PROJECT_ROOT not in sys.path:
@@ -67,27 +72,59 @@ def _format_traceback(exc: BaseException) -> str:
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
 
-def _resolve_package_root(package: Optional[str]) -> Optional[str]:
-    if package is None or package == _DEFAULT_PROOFS_PACKAGE:
-        return _DEFAULT_PROOFS_ROOT
+def _ensure_namespace(package: str, path: str) -> None:
+    """Ensure a package namespace exists in ``sys.modules`` with the given search path."""
+
+    if not package:
+        return
+
+    normalized_path = os.path.abspath(os.fspath(path))
+    module = sys.modules.get(package)
+
+    if module is None:
+        module = ModuleType(package)
+        module.__path__ = [normalized_path]  # type: ignore[attr-defined]
+        sys.modules[package] = module
+    else:
+        pkg_paths = list(getattr(module, "__path__", []))
+        if normalized_path not in pkg_paths:
+            pkg_paths.append(normalized_path)
+            module.__path__ = pkg_paths  # type: ignore[attr-defined]
+
+    parent_name, _, child_name = package.rpartition(".")
+    if parent_name:
+        parent_path = os.path.dirname(normalized_path)
+        _ensure_namespace(parent_name, parent_path)
+        parent_module = sys.modules[parent_name]
+        if not hasattr(parent_module, child_name):
+            setattr(parent_module, child_name, module)
+
+
+def _load_module_from_path(module_name: str, file_path: str) -> ModuleType:
+    """Load ``module_name`` from ``file_path`` and register it in ``sys.modules``."""
+
+    normalized_path = os.path.abspath(os.fspath(file_path))
+
+    if module_name in sys.modules:
+        sys.modules.pop(module_name, None)
+
+    if not os.path.isfile(normalized_path):
+        raise ModuleNotFoundError(f"Cannot find module file: {normalized_path}")
+
+    spec = importlib.util.spec_from_file_location(module_name, normalized_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Unable to create module spec for {normalized_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
 
     try:
-        spec = importlib.util.find_spec(package)
-    except ModuleNotFoundError:
-        return None
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
 
-    if spec is None or spec.submodule_search_locations is None:
-        return None
-
-    try:
-        first_location = next(iter(spec.submodule_search_locations))
-    except StopIteration:  # defensive, no search locations reported
-        return None
-
-    if first_location is None:
-        return None
-
-    return os.path.abspath(os.fspath(first_location))
+    return module
 
 
 def _verify_proof_at(
@@ -98,11 +135,13 @@ def _verify_proof_at(
 ) -> ProofCheckResult:
     """Import ``package.statement_name`` from ``search_root`` and execute its ``proof`` method."""
 
+    trimmed_root = os.path.abspath(os.fspath(search_root))
     module_name = f"{package}.{statement_name}"
 
     try:
-        importlib.import_module(package)
-    except ModuleNotFoundError as exc:
+        _ensure_namespace(package, trimmed_root)
+        _ensure_namespace(_DEFAULT_CLASSES_PACKAGE, _DEFAULT_CLASSES_ROOT)
+    except Exception as exc:  # noqa: BLE001
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
@@ -111,40 +150,26 @@ def _verify_proof_at(
             traceback=_format_traceback(exc),
         )
 
-    trimmed_root = os.path.abspath(os.fspath(search_root))
-
-    if module_name in sys.modules:
-        sys.modules.pop(module_name, None)
-
-    relative_parts = statement_name.split(".")
-    module_filename = os.path.join(trimmed_root, *relative_parts) + ".py"
-
-    if not os.path.isfile(module_filename):
-        return ProofCheckResult(
-            statement_name=statement_name,
-            success=False,
-            stage="import",
-            error_message=f"Cannot find module file: {module_filename}",
-            traceback=None,
-        )
-
-    spec = importlib.util.spec_from_file_location(module_name, module_filename)
-    if spec is None or spec.loader is None:
-        return ProofCheckResult(
-            statement_name=statement_name,
-            success=False,
-            stage="import",
-            error_message=f"Unable to create module spec for {module_filename}",
-            traceback=None,
-        )
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
+    class_module_name = f"{_DEFAULT_CLASSES_PACKAGE}.{statement_name}"
+    class_path = os.path.join(_DEFAULT_CLASSES_ROOT, *statement_name.split(".")) + ".py"
 
     try:
-        spec.loader.exec_module(module)
-    except Exception as exc:  # noqa: BLE001 - we want to surface all failures
-        sys.modules.pop(module_name, None)
+        if os.path.isfile(class_path):
+            _load_module_from_path(class_module_name, class_path)
+    except Exception as exc:  # noqa: BLE001
+        return ProofCheckResult(
+            statement_name=statement_name,
+            success=False,
+            stage="import",
+            error_message=str(exc),
+            traceback=_format_traceback(exc),
+        )
+
+    proof_path = os.path.join(trimmed_root, *statement_name.split(".")) + ".py"
+
+    try:
+        module = _load_module_from_path(module_name, proof_path)
+    except Exception as exc:  # noqa: BLE001
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
