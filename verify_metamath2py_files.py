@@ -3,7 +3,7 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from paths import proofs_folder_path, PathsEnum
+from paths import proofs_folder_path
 
 from verification import iter_statement_names, verify_proof
 
@@ -14,8 +14,7 @@ if __name__ == '__main__':
 
     failures = []
     for statement_name in tqdm(iter_statement_names(root_path=proofs_folder_path)):
-        package = f"{PathsEnum.metamath2py_folder_name}.{PathsEnum.proofs_folder_name}"
-        result = verify_proof(statement_name=statement_name, package=package)
+        result = verify_proof(statement_name=statement_name)
         if not result.success:
             failures.append(result)
             print(f"\n[FAIL] {statement_name} ({result.stage})")

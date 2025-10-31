@@ -139,7 +139,7 @@ class VerifyProofTool(Tool):
         trajectory: Optional[list] = None,
     ) -> Any:
         module_name = self._derive_module_name(path_to_pyfile, package or self._default_package)
-        result = verify_proof(module_name, package=package or self._default_package)
+        result = verify_proof(module_name)
         return {
             "statement_name": result.statement_name,
             "success": result.success,
