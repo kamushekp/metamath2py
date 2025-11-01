@@ -1,26 +1,18 @@
 # Standard library
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 # Local
-try:
-    from saplings.model import Model
-    from saplings.dtos import Node, Message
-    from saplings.prompts import AGENT_PROMPT
-    from saplings.agents.Base import BaseAgent
-    from saplings.abstract import Tool, Evaluator
-except ImportError:
-    from model import Model
-    from dtos import Node, Message
-    from prompts import AGENT_PROMPT
-    from agents.Base import BaseAgent
-    from abstract import Tool, Evaluator
+from saplings.dtos import Node, Message
+from saplings.prompts import AGENT_PROMPT
+from saplings.agents.Base import BaseAgent
+from saplings.evaluator import Evaluator
 
 
 class GreedyAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Tool],
-        model: Model,
+        tools: List[Any],
+        model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
@@ -33,7 +25,7 @@ class GreedyAgent(BaseAgent):
     ):
         super().__init__(
             tools,
-            model,
+            model_name,
             evaluator,
             prompt,
             b_factor,

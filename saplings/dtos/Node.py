@@ -4,12 +4,8 @@ from collections import deque
 from typing import Generator, List, Optional
 
 # Local
-try:
-    from saplings.dtos.Message import Message
-    from saplings.dtos.Evaluation import Evaluation
-except ImportError:
-    from dtos.Message import Message
-    from dtos.Evaluation import Evaluation
+from saplings.dtos.Message import Message
+from saplings.dtos.Evaluation import Evaluation
 
 
 class Node(object):
@@ -18,6 +14,7 @@ class Node(object):
         messages: List[Message],
         evaluation: Optional[Evaluation] = None,
         parent: Optional["Node"] = None,
+        context_items: Optional[list] = None,
     ):
         self.id = id(self)
         self.messages = messages  # Tool calls + responses
@@ -28,6 +25,7 @@ class Node(object):
         self._value = 0
         self.is_solved = False
         self.set_evaluation(evaluation)
+        self.context_items = context_items
 
     def __repr__(self):
         return self.__str__()

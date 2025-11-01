@@ -1,28 +1,19 @@
 # Standard library
 import heapq
 from math import inf
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
-# Local
-try:
-    from saplings.abstract import Tool, Evaluator
-    from saplings.agents.Base import BaseAgent
-    from saplings.dtos import Message, Node
-    from saplings.prompts import AGENT_PROMPT
-    from saplings.model import Model
-except ImportError:
-    from abstract import Tool, Model, Evaluator
-    from agents.Base import BaseAgent
-    from dtos import Message, Node
-    from prompts import AGENT_PROMPT
-    from model import Model
+from saplings.evaluator import Evaluator
+from saplings.agents.Base import BaseAgent
+from saplings.dtos import Message, Node
+from saplings.prompts import AGENT_PROMPT
 
 
 class AStarAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Tool],
-        model: Model,
+        tools: List[Any],
+        model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
@@ -35,7 +26,7 @@ class AStarAgent(BaseAgent):
     ):
         super().__init__(
             tools,
-            model,
+            model_name,
             evaluator,
             prompt,
             b_factor,

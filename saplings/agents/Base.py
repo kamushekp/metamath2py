@@ -1,43 +1,54 @@
 # Standard library
 import asyncio
+import json
 import threading
-from typing import List, Optional
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
+
+# Third party
+from agents import ItemHelpers, RunConfig, Runner
+from agents.exceptions import MaxTurnsExceeded
 
 # Local
-try:
-    from saplings.model import Model
-    from saplings.dtos import Message, Node
-    from saplings.evaluator import Evaluator
-    from saplings.prompts import AGENT_PROMPT
-    from saplings.abstract import Tool, Evaluator as BaseEvaluator
-except ImportError:
-    from model import Model
-    from dtos import Message, Node
-    from evaluator import Evaluator
-    from prompts import AGENT_PROMPT
-    from abstract import Tool, Evaluator as BaseEvaluator
+from saplings.dtos import Message, Node, ToolCall
+from saplings.evaluator import Evaluator
+from saplings.prompts import AGENT_PROMPT
+from saplings.agents.factories import (
+    create_agent as create_openai_agent,
+    serialize_messages_for_runner,
+)
+
+
+@dataclass
+class Candidate:
+    """Container describing a single branch returned by an Agents SDK run."""
+
+    messages: List[Message]
+    context_items: List[Any]
+    run_result: Any
 
 
 class BaseAgent(object):
     def __init__(
         self,
-        tools: List[Tool],
-        model: Model,
-        evaluator: Optional[BaseEvaluator] = None,
+        tools: List[Any],
+        model_name: Optional[str] = None,
+        evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
         max_depth: int = 5,
         threshold: float = 1.0,
         verbose: bool = True,
-        tool_choice: str = "auto",  # or "required"
+        tool_choice: str = "auto",  # preserved for config compatibility
         parallel_tool_calls: bool = False,
         update_prompt: Optional[callable] = None,
     ):
         self.tools = tools
-        self.model = model
-        self.evaluator = evaluator if evaluator else Evaluator(model)
+        self.model_name = model_name
+        self.evaluator = evaluator if evaluator else Evaluator(
+            model_name=model_name,
+            prompt=self.prompt,
+        )
         self.prompt = prompt  # Governs tool calls
         self.b_factor = b_factor  # Branching factor
         self.max_depth = max_depth
@@ -46,8 +57,13 @@ class BaseAgent(object):
         self.tool_choice = tool_choice
         self.parallel_tool_calls = parallel_tool_calls
         self.max_tool_call_tokens = 2048
-        self.update_system_prompt = update_prompt if update_prompt else lambda t: prompt
+        self.update_system_prompt = update_prompt if update_prompt else lambda _: prompt
+        self.step_max_turns = 2
+        self.candidate_temperature = 1.0
 
+    # ---------------------------------------------------------------------
+    # Logging utilities
+    # ---------------------------------------------------------------------
     def log(self, message: str):
         if not self.verbose:
             return
@@ -57,6 +73,47 @@ class BaseAgent(object):
 
         print(f"{bold_yellow}SAPLINGS LOG:{reset} {message}")
 
+    # ---------------------------------------------------------------------
+    # Tool helpers
+    # ---------------------------------------------------------------------
+    def _tool_is_terminal(self, tool: Any) -> bool:
+        if hasattr(tool, "saplings_is_terminal"):
+            return bool(getattr(tool, "saplings_is_terminal"))
+        return bool(getattr(tool, "is_terminal", False))
+
+    def _tool_is_active(self, tool: Any, trajectory: List[Message]) -> bool:
+        predicate = getattr(tool, "saplings_is_active", None)
+        if callable(predicate):
+            try:
+                return bool(predicate(trajectory=trajectory))
+            except TypeError:
+                return bool(predicate(trajectory))
+        method = getattr(tool, "is_active", None)
+        if callable(method):
+            return bool(method(trajectory))
+        return True
+
+    def _tool_update_definition(self, tool: Any, trajectory: List[Message]):
+        updater = getattr(tool, "saplings_update_definition", None)
+        if callable(updater):
+            updater(trajectory)
+            return
+        method = getattr(tool, "update_definition", None)
+        if callable(method):
+            method(trajectory)
+
+    def _tool_format_output(self, tool: Any, output: Any) -> str:
+        formatter = getattr(tool, "saplings_format_output", None)
+        if callable(formatter):
+            return formatter(output)
+        method = getattr(tool, "format_output", None)
+        if callable(method):
+            return method(output)
+        return json.dumps(output, ensure_ascii=False) if isinstance(output, (dict, list)) else str(output)
+
+    # ---------------------------------------------------------------------
+    # Node classification helpers
+    # ---------------------------------------------------------------------
     def is_output_node(self, node: Node) -> bool:
         """
         Checks if a node represents a final response to the user's prompt.
@@ -66,12 +123,12 @@ class BaseAgent(object):
             if message.role != "assistant":
                 continue
 
-            if not message.tool_calls:  # and len(node.messages) == 1
+            if not message.tool_calls:
                 return True
 
             for tool_call in message.tool_calls:
                 tool = self.get_tool_by_name(tool_call.name)
-                if tool.is_terminal:
+                if self._tool_is_terminal(tool):
                     return True
 
         return False
@@ -105,13 +162,12 @@ class BaseAgent(object):
     def can_generate_output(self) -> bool:
         """
         Checks if the agent can generate a direct output for the user. This means it
-        either has a tool marked as `is_output` or it has a tool choice of `optional`,
+        either has a tool marked as `is_terminal` or it has a tool choice of `auto`,
         which means the model can choose to generate a response.
         """
 
-        # TODO: Should we only consider active tools?
         for tool in self.tools:
-            if tool.is_terminal:
+            if self._tool_is_terminal(tool):
                 return True
 
         if self.tool_choice == "auto":
@@ -119,6 +175,9 @@ class BaseAgent(object):
 
         return False
 
+    # ---------------------------------------------------------------------
+    # Tree helpers
+    # ---------------------------------------------------------------------
     def get_best_node(self, root: Node) -> Node:
         """
         Gets the best solution from the search tree.
@@ -130,7 +189,7 @@ class BaseAgent(object):
         If not, we consider all leaf nodes.
         """
 
-        best_score, best_output_score = 0, 0
+        best_score, best_output_score = 0.0, 0.0
         best_node, best_output_node = root, None
         for node in root.bfs():
             if not node.is_leaf:
@@ -148,13 +207,13 @@ class BaseAgent(object):
 
         return best_node
 
-    def get_tool_by_name(self, name: str) -> Tool:
+    def get_tool_by_name(self, name: str) -> Any:
         """
         Gets a tool object by its name.
         """
 
         for tool in self.tools:
-            if tool.name == name:
+            if getattr(tool, "name", None) == name:
                 return tool
 
         raise ValueError(f"Tool with name '{name}' not found.")
@@ -166,107 +225,198 @@ class BaseAgent(object):
 
         self.prompt = self.update_system_prompt(trajectory)
         for tool in self.tools:
-            tool.update_definition(trajectory)
+            self._tool_update_definition(tool, trajectory)
+
+    # ---------------------------------------------------------------------
+    # OpenAI Agents integration
+    # ---------------------------------------------------------------------
+    def _build_agent(self, tools: Sequence[Any]):
+        return create_openai_agent(
+            name="Saplings Search Agent",
+            instructions=self.prompt,
+            tools=tools,
+            model_name=self.model_name,
+            max_output_tokens=self.max_tool_call_tokens,
+            temperature=self.candidate_temperature,
+            parallel_tool_calls=self.parallel_tool_calls,
+        )
+
+    def _candidate_key(self, messages: Sequence[Message]) -> Tuple[Any, ...]:
+        signature: List[Any] = []
+        for message in messages:
+            if message.tool_calls:
+                for tool_call in message.tool_calls:
+                    signature.append(
+                        (
+                            "tool",
+                            tool_call.name,
+                            json.dumps(tool_call.arguments, sort_keys=True),
+                        )
+                    )
+            else:
+                signature.append((message.role, message.content))
+        return tuple(signature)
+
+    def _prepare_runner_input(
+        self, node: Node, prefix_messages: List[Message]
+    ) -> List[Any]:
+        if node.context_items is not None:
+            return list(node.context_items)
+
+        history = prefix_messages + node.get_trajectory()
+        if not history:
+            return []
+
+        return serialize_messages_for_runner(history)
+
+    def _message_from_tool_call(self, item: Any) -> Message:
+        raw = getattr(item, "raw_item", {}) or {}
+        name = getattr(raw, "name", None) or raw.get("name")
+        arguments = getattr(raw, "arguments", None) or raw.get("arguments") or "{}"
+        call_id = (
+            getattr(raw, "id", None)
+            or getattr(raw, "call_id", None)
+            or raw.get("id")
+            or raw.get("call_id")
+        )
+
+        if isinstance(arguments, str):
+            try:
+                parsed_args = json.loads(arguments)
+            except json.JSONDecodeError:
+                parsed_args = {"_raw": arguments}
+        else:
+            parsed_args = arguments
+
+        tool_call = ToolCall(call_id or name or "call", name or "tool", parsed_args)
+        message = Message.tool_calls([tool_call])
+        message.id = call_id or id(message)
+        message.parent_id = None
+        return message
+
+    def _message_from_tool_output(self, item: Any) -> Message:
+        raw = getattr(item, "raw_item", {}) or {}
+        call_id = (
+            getattr(raw, "call_id", None)
+            or getattr(raw, "id", None)
+            or raw.get("call_id")
+            or raw.get("id")
+        )
+        name = getattr(raw, "name", None) or raw.get("name")
+        output = getattr(item, "output", None)
+        tool = self.get_tool_by_name(name) if name else None
+        formatted_output = (
+            self._tool_format_output(tool, output) if tool else str(output)
+        )
+        message = Message.tool(
+            formatted_output,
+            call_id or name or "tool-output",
+            raw_output=output,
+        )
+        message.id = call_id or id(message)
+        return message
+
+    def _message_from_assistant(self, item: Any) -> Optional[Message]:
+        if ItemHelpers:
+            try:
+                text = ItemHelpers.text_message_output(item)
+            except Exception:
+                text = None
+        else:
+            text = None
+
+        if not text:
+            raw = getattr(item, "raw_item", None)
+            contents = getattr(raw, "content", None) if raw else None
+            if contents:
+                text_parts = []
+                for part in contents:
+                    text_parts.append(getattr(part, "text", None) or part.get("text"))
+                text = "".join(filter(None, text_parts))
+
+        if not text:
+            return None
+
+        message = Message.assistant(text)
+        message.id = getattr(item, "id", None) or id(message)
+        return message
+
+    def _run_items_to_messages(self, run_items: Iterable[Any]) -> List[Message]:
+        messages: List[Message] = []
+        for item in run_items:
+            item_type = getattr(item, "type", None)
+            if item_type == "tool_call_item":
+                messages.append(self._message_from_tool_call(item))
+            elif item_type == "tool_call_output_item":
+                messages.append(self._message_from_tool_output(item))
+            elif item_type == "message_output_item":
+                assistant_message = self._message_from_assistant(item)
+                if assistant_message:
+                    messages.append(assistant_message)
+        return messages
 
     async def generate_candidates(
         self, node: Node, messages: List[Message], n: Optional[int] = None
-    ) -> List[Message]:
+    ) -> List[Candidate]:
         """
-        Generates plausible next tool calls to take in a given trajectory.
-        Obtains `b_factor` candidate tool calls by using the `num_outputs`
-        parameter to control the number of tool calls made by the LLM.
-        Tool calls are always unique/de-duplicated. Can also be a response
-        not a tool call if `tool_choice == "auto"`.
+        Generates plausible next trajectories using the OpenAI Agents Runner.
         """
 
-        # No. of candidates to generate
-        n = n if n else self.b_factor
-
-        # Get active tools
+        sample_count = n if n else self.b_factor
         trajectory = messages + node.get_trajectory()
-        tools = [tool for tool in self.tools if tool.is_active(trajectory)]
-        tool_schemas = [tool.get_schema() for tool in tools]
+        active_tools = [
+            tool for tool in self.tools if self._tool_is_active(tool, trajectory)
+        ]
+        agent = self._build_agent(active_tools)
+        runner_input = self._prepare_runner_input(node, messages)
 
-        # Generate tool calls
-        system_message = Message.system(self.prompt)
-        headroom = (
-            self.model.count_message_tokens(system_message) + self.max_tool_call_tokens
-        )
-        messages = [system_message] + self.model.truncate_messages(
-            trajectory, headroom, tools
-        )
-        response = await self.model.run_async(
-            messages,
-            tools=tool_schemas,
-            parallel_tool_calls=self.parallel_tool_calls,
-            tool_choice=self.tool_choice,
-            max_tokens=self.max_tool_call_tokens,
-            n=n,
-            temperature=1.0,
-        )
-        if n == 1:
-            candidates = [Message.from_openai_message(response)]
-        else:
-            candidates = [
-                Message.from_openai_message(choice.message) for choice in response
-            ]
+        candidates: List[Candidate] = []
+        seen: set[Tuple[Any, ...]] = set()
 
-        # Deduplicate tool calls and sort by frequency
-        tool_counts = defaultdict(lambda: 0)
-        tool_messages = defaultdict(dict)
-        response_messages = set()
-        for message in candidates:
-            if not message.tool_calls:
-                response_messages.add(message)
+        attempts = max(sample_count * 3, sample_count)
+        for _ in range(attempts):
+            try:
+                run_result = await Runner.run(
+                    agent,
+                    input=runner_input,
+                    config=RunConfig(max_turns=self.step_max_turns),
+                )
+            except MaxTurnsExceeded:
                 continue
 
-            tool_call = message.tool_calls[0]
-            tool_counts[hash(tool_call)] += 1
-            tool_messages[hash(tool_call)] = message
+            new_messages = self._run_items_to_messages(run_result.new_items)
+            if not new_messages:
+                continue
 
-        # TODO: Sort by tool name as tiebreaker
+            key = self._candidate_key(new_messages)
+            if key in seen:
+                continue
+            seen.add(key)
 
-        top_tools = sorted(tool_counts.items(), key=lambda item: item[1], reverse=True)
-        top_tools = [tool_messages[tool] for tool, _ in top_tools]
-        candidates = list(response_messages) + top_tools  # We prioritize responses
+            candidate = Candidate(
+                messages=new_messages,
+                context_items=run_result.to_input_list(),
+                run_result=run_result,
+            )
+            candidates.append(candidate)
 
-        return candidates[: self.b_factor]
+            if len(candidates) >= sample_count:
+                break
 
-    async def execute_tool_call(
-        self, message: Message, trajectory: List[Message]
-    ) -> Message:
-        if not message.tool_calls:
-            return None  # TODO: When would this be hit?
+        return candidates
 
-        fn_call = message.tool_calls[0]
-        tool = self.get_tool_by_name(fn_call.name)
-        output = await tool.run(**fn_call.arguments, trajectory=trajectory)
-        formatted_output = tool.format_output(output)
-        tool_response = Message.tool(formatted_output, fn_call.id, raw_output=output)
-        tool_response.parent_id = message.parent_id
-        tool_response.id = message.id
-
-        return tool_response
-
+    # ---------------------------------------------------------------------
+    # Evaluation & expansion
+    # ---------------------------------------------------------------------
     async def evaluate(self, node: Node, messages: List[Message] = []) -> Node:
         """
         Evaluates a node in the search tree. If a custom evaluator is not provided,
         the LLM self-evaluates the node.
         """
 
-        # TODO: If self.is_output_node(node), should we only evaluate the message(s) in that node?
-        # Or evaluate the whole trajectory? For now, we are evaluating the whole trajectory.
-
         trajectory = messages + node.get_trajectory()
         evaluation = await self.evaluator.run(trajectory)
         node.set_evaluation(evaluation)
-
-        # TODO: Add a self-consistency term. We can do this by sampling multiple outputs for
-        # the candidate generation (the step before evaluation) and weighing each candidate
-        # by the probability of it being generated. Then the final value would be
-        # V(n) = LLM(n) * lambda + SC(n) * (1 - lambda), where lambda is a hyperparameter
-        # that controls the weight of the self-consistency term.
-
         return node
 
     async def expand(self, node: Node, messages: List[Message], run_eval=True):
@@ -281,49 +431,31 @@ class BaseAgent(object):
         trajectory = messages + node.get_trajectory()
         self.update_prompts(trajectory)
 
-        # Create (partial) child nodes
-        children = []
+        # Generate candidate trajectories
+        candidates = await self.generate_candidates(node, messages)
+        if not candidates:
+            self.log("No candidates generated by runner.")
+            yield []
+            return
 
-        # Generate candidate next tool calls, execute each
-        tool_calls = await self.generate_candidates(node, messages)
-        tasks = []
-        for tool_call in tool_calls:
-            partial_child = Node([tool_call], parent=node)
-            children.append(partial_child)
+        children: List[Node] = []
+        for candidate in candidates:
+            child = Node(candidate.messages, parent=node, context_items=candidate.context_items)
+            children.append(child)
 
-            tool_call.id = partial_child.id
-            tool_call.parent_id = (
-                partial_child.parent.id if partial_child.parent else None
-            )
-            yield tool_call
+            for message in candidate.messages:
+                message.parent_id = node.id
+                message.id = child.id
+                yield message
 
-            task = self.execute_tool_call(tool_call, trajectory)
-            tasks.append(task)
-
-        id_to_index = {child.id: i for i, child in enumerate(children)}
-
-        tool_responses = [None] * len(tasks)
-        for task in asyncio.as_completed(tasks):
-            tool_response = await task
-            if not tool_response:
-                continue
-
-            j = id_to_index[tool_response.id]
-            child = children[j]
-            child.messages.append(tool_response)
-            tool_responses[j] = tool_response
-
-            if not run_eval:
-                yield tool_response
-
-        # Evaluate each child
         if run_eval:
             tasks = [self.evaluate(child, messages) for child in children]
             for result in asyncio.as_completed(tasks):
                 child = await result
-                tool_response = child.messages[-1]
-                tool_response.score = child.score
-                yield tool_response
+                if child.messages:
+                    final_message = child.messages[-1]
+                    final_message.score = child.score
+                    yield final_message
 
         self.log(
             f"Generated {len(children)} children\n\n"
@@ -331,17 +463,19 @@ class BaseAgent(object):
             + "\n"
         )
 
-        # Grow the tree
         node.add_children(children)
 
-    async def run_async(self, prompt: str, messages: list[Message] = []):
+    # ---------------------------------------------------------------------
+    # Execution entrypoints
+    # ---------------------------------------------------------------------
+    async def run_async(self, prompt: str, messages: List[Message] = []):
         last_item = None
         async for item in self.run_iter_async(prompt, messages):
             last_item = item
 
         return last_item
 
-    def run(self, prompt: str, messages: List[Message] = [], **kwargs) -> any:
+    def run(self, prompt: str, messages: List[Message] = [], **kwargs) -> Any:
         loop = asyncio.new_event_loop()
         result = None
 
@@ -356,103 +490,23 @@ class BaseAgent(object):
         thread.join()
         return result
 
-    def run_iter(self, prompt: str, messages: List[Message] = [], **kwargs) -> any:
+    def run_iter(self, prompt: str, messages: List[Message] = [], **kwargs) -> Any:
         async def run_async_wrapper():
-            async for item in self.run_iter_async(prompt, messages):
+            async for item in self.run_iter_async(prompt, messages, **kwargs):
                 yield item
 
-        # Get an event loop and run the async generator
         loop = asyncio.get_event_loop()
         async_gen = run_async_wrapper()
 
         try:
             while True:
-                # Get the next item from the async generator
                 try:
                     item = loop.run_until_complete(async_gen.__anext__())
                     yield item
                 except StopAsyncIteration:
                     break
         finally:
-            # Clean up the async generator
             loop.run_until_complete(async_gen.aclose())
 
-    async def call_tool_async(
-        self, tool_name: str, messages: List[Message] = []
-    ) -> Message:
-        system_message = Message.system(self.prompt)
-        headroom = (
-            self.model.count_message_tokens(system_message) + self.max_tool_call_tokens
-        )
-        messages = [system_message] + self.model.truncate_messages(
-            messages, headroom, self.tools
-        )
-        response = await self.model.run_async(
-            messages,
-            tools=[tool.get_schema() for tool in self.tools],
-            parallel_tool_calls=self.parallel_tool_calls,
-            tool_choice={"type": "function", "function": {"name": tool_name}},
-            max_tokens=self.max_tool_call_tokens,
-            n=1,
-            temperature=1.0,
-        )
-        return Message.from_openai_message(response)
-
-    async def run_tool_async(
-        self, tool_call: Message, messages: List[Message] = []
-    ) -> Message:
-        return await self.execute_tool_call(tool_call, messages)
-
-    def call_tool(self, tool_name: str, messages: List[Message] = []) -> Message:
-        loop = asyncio.new_event_loop()
-        result = None
-
-        def _run():
-            nonlocal result
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(
-                    self.call_tool_async(tool_name, messages)
-                )
-            finally:
-                # Clean up pending tasks before closing
-                pending = asyncio.all_tasks(loop)
-                for task in pending:
-                    task.cancel()
-                if pending:
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
-                loop.close()
-
-        thread = threading.Thread(target=_run)
-        thread.start()
-        thread.join()
-        return result
-
-    def run_tool(self, tool_call: Message, messages: List[Message] = []) -> Message:
-        loop = asyncio.new_event_loop()
-        result = None
-
-        def _run():
-            nonlocal result
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(
-                    self.run_tool_async(tool_call, messages)
-                )
-            finally:
-                # Clean up pending tasks before closing
-                pending = asyncio.all_tasks(loop)
-                for task in pending:
-                    task.cancel()
-                if pending:
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
-                loop.close()
-
-        thread = threading.Thread(target=_run)
-        thread.start()
-        thread.join()
-        return result
+    async def run_iter_async(self, prompt: str, messages: List[Message] = []):
+        raise NotImplementedError

@@ -9,10 +9,7 @@ except Exception:  # pragma: no cover
     import json as _json
 
 # Local
-try:
-    from saplings.dtos.Message import Message
-except ImportError:
-    from dtos.Message import Message
+from saplings.dtos.Message import Message
 
 
 class Evaluation(object):

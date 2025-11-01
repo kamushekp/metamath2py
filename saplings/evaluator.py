@@ -2,70 +2,45 @@
 from statistics import mean
 from typing import List, Optional
 
+# Third party
+from agents import Runner
+from pydantic import BaseModel, Field
+
 # Local
-try:
-    from saplings.dtos import Message, Evaluation
-    from saplings.model import Model
-    from saplings.prompts import EVAL_PROMPT
-except ImportError:
-    from dtos import Message, Evaluation
-    from model import Model
-    from prompts import EVAL_PROMPT
+from saplings.dtos import Message, Evaluation
+from saplings.prompts import EVAL_PROMPT
+from saplings.agents.factories import serialize_messages_for_runner
+from saplings.agents.predefined import create_evaluator_agent, EvaluationPayload
 
 
 class Evaluator(object):
     def __init__(
         self,
-        model: Optional[Model] = None,
+        model_name: Optional[str] = None,
         n_samples: int = 1,
         prompt: str = EVAL_PROMPT,
     ):
-        self.model = model
+        self.model_name = model_name
         self.n_samples = n_samples
         self.prompt = prompt
         self.max_output_tokens = 1024
+        self.agent = create_evaluator_agent(
+            model_name=self.model_name,
+            max_output_tokens=self.max_output_tokens,
+        )
+
+    async def _run_single(self, trajectory: List[Message]) -> Evaluation:
+        runner_input = serialize_messages_for_runner(trajectory)
+        result = await Runner.run(self.agent, input=runner_input)
+        payload = result.final_output_as(EvaluationPayload)
+        normalized = max(0.0, min(payload.score, 10.0)) / 10.0
+        return Evaluation(score=normalized, reasoning=payload.reasoning)
 
     async def run(self, trajectory: List[Message]) -> Evaluation:
-        system_message = Message.system(self.prompt)
-        headroom = (
-            self.model.count_message_tokens(system_message) + self.max_output_tokens
-        )
-        messages = self.model.truncate_messages(trajectory, headroom)
-        messages = [system_message] + messages
-        response = await self.model.run_async(
-            messages,
-            max_tokens=self.max_output_tokens,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "evaluation",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "reasoning": {
-                                "type": "string",
-                                "description": "Your thoughts and reasoning process. Keep it brief and concise.",
-                            },
-                            "score": {
-                                "type": "number",
-                                "description": "Score from 0-10 on the quality of the trajectory. A 10 indicates that the agent has completely succeeded in satisfying the user's intent.",
-                            },
-                        },
-                        "required": ["reasoning", "score"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            n=self.n_samples,
-        )
+        evaluations = []
+        for _ in range(max(1, self.n_samples)):
+            evaluations.append(await self._run_single(trajectory))
 
-        if self.n_samples > 1:  # Use self-consistency
-            evals = (Message.from_openai_message(choice.message) for choice in response)
-        else:
-            evals = [Message.from_openai_message(response)]
-
-        evals = [Evaluation.from_message(eval) for eval in evals]
-        evaluation = evals[0]
-        evaluation.score = mean(eval.score for eval in evals)
-        return evaluation
+        primary = evaluations[0]
+        primary.score = mean(e.score for e in evaluations)
+        return primary

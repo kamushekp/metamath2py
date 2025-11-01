@@ -1,26 +1,18 @@
 # Standard library
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 # Local
-try:
-    from saplings.model import Model
-    from saplings.agents.Base import BaseAgent
-    from saplings.dtos import Message, Node
-    from saplings.abstract import Tool, Evaluator
-    from saplings.prompts import AGENT_PROMPT
-except ImportError:
-    from model import Model
-    from agents.Base import BaseAgent
-    from dtos import Message, Node
-    from abstract import Tool, Evaluator
-    from prompts import AGENT_PROMPT
+from saplings.agents.Base import BaseAgent
+from saplings.dtos import Message, Node
+from saplings.evaluator import Evaluator
+from saplings.prompts import AGENT_PROMPT
 
 
 class MonteCarloAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Tool],
-        model: Optional[Model] = None,
+        tools: List[Any],
+        model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
@@ -34,7 +26,7 @@ class MonteCarloAgent(BaseAgent):
     ):
         super().__init__(
             tools,
-            model,
+            model_name,
             evaluator,
             prompt,
             b_factor,
@@ -58,49 +50,12 @@ class MonteCarloAgent(BaseAgent):
 
     async def generate_root_node(self, prompt: str, messages: List[Message]):
         """
-        Generates the root node (i.e. the first tool call) in the
-        search tree.
+        Generates and evaluates the root node in the search tree.
         """
 
-        # TODO: If this root tool call is wrong, then the whole search tree is screwed.
-        # We should use the prompt as the root node and start the search by expanding that.
-
-        # Get active tools
-        tools = [tool for tool in self.tools if tool.is_active(messages)]
-        tool_schemas = [tool.get_schema() for tool in tools]
-
-        # Generate the first tool call
-        system_message = Message.system(self.prompt)
-        user_message = Message.user(prompt)
-        response = await self.model.run_async(
-            [system_message] + messages + [user_message],
-            tools=tool_schemas,
-            parallel_tool_calls=False,
-            tool_choice="required",
-            max_tokens=self.max_tool_call_tokens,
-            temperature=1.0,
-        )
-        tool_call = Message.from_openai_message(response)
-
-        # Initialize the Node
-        node = Node([Message.user(prompt), tool_call])
-
-        tool_call.id = node.id
-        yield tool_call
-
-        # Execute the tool call
-        tool_response = await self.execute_tool_call(
-            tool_call, trajectory=[user_message]
-        )
-        node.messages.append(tool_response)
-
-        # Build and evaluate the root node
-        await self.evaluate(node)
-
-        tool_response.id = node.id
-        tool_response.score = node.score
-
-        yield tool_response
+        node = Node([Message.user(prompt)])
+        async for item in self.expand(node, messages):
+            yield item
         yield node
 
     def has_non_terminal_leaves(self, root: Node) -> bool:
@@ -139,10 +94,17 @@ class MonteCarloAgent(BaseAgent):
         """
 
         curr_node = node.get_best_child()
+        if not curr_node:
+            return
         while not self.is_terminal_node(curr_node):
             async for item in self.expand(curr_node, messages):
                 yield item
             curr_node = curr_node.get_best_child()
+            if not curr_node:
+                break
+
+        if not curr_node:
+            return
 
         self.log(f"\033[1;31mReached terminal node\033[0m\n\n{curr_node}\n")
 
@@ -159,6 +121,11 @@ class MonteCarloAgent(BaseAgent):
         async for item in self.generate_root_node(prompt, messages):
             root = item
             yield item
+
+        if root is None:
+            self.log("\033[1;31mFailed to generate initial trajectory; aborting.\033[0m")
+            yield ([], 0.0, False)
+            return
 
         num_rollouts = 0
         while not self.should_terminate(root, num_rollouts):

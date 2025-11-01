@@ -9,10 +9,7 @@ except Exception:  # pragma: no cover
     import json as _json
 
 # Local
-try:
-    from saplings.dtos.ToolCall import ToolCall
-except ImportError:
-    from dtos.ToolCall import ToolCall
+from saplings.dtos.ToolCall import ToolCall
 
 
 class Message(object):

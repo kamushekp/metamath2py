@@ -11,13 +11,15 @@ from saplings.agents.Greedy import GreedyAgent
 from saplings.agents.MonteCarlo import MonteCarloAgent
 from saplings.agents.COT import COTAgent
 from saplings.dtos import Message
-from saplings.model import Model
+from saplings.evaluator import Evaluator
 
 from database.opensearch_wrapper import TheoremSearchClient
 
 from .config import AgentConfig
-from saplings.tools.metamath_tools import SearchTheoremsTool, VerifyProofTool
-from saplings.evaluators import ProofEvaluator
+from saplings.tools.metamath_tools import (
+    create_search_theorems_tool,
+    create_verify_proof_tool,
+)
 from paths import agent_runs_folder_path
 
 
@@ -32,19 +34,18 @@ def _make_tools(cfg: AgentConfig) -> list:
         http_auth=cfg.opensearch_http_auth,
     )
     return [
-        SearchTheoremsTool(client),
-        VerifyProofTool(),
+        create_search_theorems_tool(client),
+        create_verify_proof_tool(),
     ]
 
 
 def build_agent(cfg: AgentConfig):
     tools = _make_tools(cfg)
-    model = Model(cfg.model)
-    evaluator = ProofEvaluator()
+    evaluator = Evaluator(model_name=cfg.model)
 
     common_kwargs = dict(
         tools=tools,
-        model=model,
+        model_name=cfg.model,
         evaluator=evaluator,
         b_factor=cfg.b_factor,
         max_depth=cfg.max_depth,

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from .metamath_tools import SearchTheoremsTool, VerifyProofTool
+from .metamath_tools import create_search_theorems_tool, create_verify_proof_tool
 
 __all__ = [
-    "SearchTheoremsTool",
-    "VerifyProofTool",
+    "create_search_theorems_tool",
+    "create_verify_proof_tool",
 ]
-

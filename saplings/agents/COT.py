@@ -1,26 +1,17 @@
 # Standard library
-from typing import List, Optional
+from typing import Any, List, Optional
 
 # Local
-try:
-    from saplings.model import Model
-    from saplings.abstract import Tool
-    from saplings.agents.Base import BaseAgent
-    from saplings.dtos import Node, Message
-    from saplings.prompts import AGENT_PROMPT
-except ImportError:
-    from model import Model
-    from abstract import Tool, Model
-    from agents.Base import BaseAgent
-    from dtos import Node, Message
-    from prompts import AGENT_PROMPT
+from saplings.agents.Base import BaseAgent
+from saplings.dtos import Node, Message
+from saplings.prompts import AGENT_PROMPT
 
 
 class COTAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Tool],
-        model: Model,
+        tools: List[Any],
+        model_name: Optional[str] = None,
         prompt: str = AGENT_PROMPT,
         max_depth: int = 5,
         verbose: bool = True,
@@ -30,7 +21,7 @@ class COTAgent(BaseAgent):
     ):
         super().__init__(
             tools,
-            model,
+            model_name,
             evaluator=None,
             prompt=prompt,
             b_factor=1,
