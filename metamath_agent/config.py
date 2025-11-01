@@ -27,7 +27,7 @@ class AgentConfig:
     b_factor: int = 3
     max_depth: int = 6
     threshold: float = 1.0
-    model: str = "gpt-4o-mini"
+    model: str = "gpt-5-mini"
     verbose: bool = True
     tool_choice: str = "auto"
     parallel_tool_calls: bool = False

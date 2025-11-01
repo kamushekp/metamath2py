@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from metamath_agent.offline_runner import generate_from_description
 from paths import PathsEnum
 from tests.tools import (

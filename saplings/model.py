@@ -1,21 +1,11 @@
-"""Model/runtime driver for Saplings agents.
+from __future__ import annotations
 
-Defaults to LiteLLM for tool-call generation, but can be replaced with an
-OpenAI Agents SDK-backed implementation in the future without changing agent
-interfaces. Import of LiteLLM is lazy/guarded to avoid hard dependency at
-import time.
-"""
+import json
+from types import SimpleNamespace
+from typing import Any, Iterable, List, Optional
 
-# Third party (optional at import-time)
-try:  # pragma: no cover - optional dependency
-    from litellm import acompletion, get_max_tokens, token_counter, encode
-except Exception:  # pragma: no cover
-    acompletion = None
-    get_max_tokens = None
-    token_counter = None
-    encode = None
+from openai import AsyncOpenAI
 
-# Local
 try:
     from saplings.dtos import Message
     from saplings.abstract import Tool
@@ -24,176 +14,189 @@ except ImportError:
     from abstract import Tool
 
 
-#########
-# HELPERS
-#########
+_DEFAULT_CONTEXT_WINDOW = 128_000
 
 
-def clean_completion_params(
-    messages,
-    model,
-    stream=False,
-    max_tokens=768,
-    temperature=0.7,
-    top_p=1,
-    frequency_penalty=0,
-    presence_penalty=0,
-    n=1,
-    tools=None,
-    tool_choice=None,
-    parallel_tool_calls=False,
-    response_format={"type": "text"},
-):
-    completion_params = {
-        "model": model,
-        "messages": [m.to_openai_message() for m in messages],
-        "temperature": temperature,
-        "top_p": top_p,
-        "presence_penalty": presence_penalty,
-        "max_tokens": max_tokens,
-        "stream": stream,
-        "frequency_penalty": frequency_penalty,
-        "response_format": response_format,
-        "n": n,
-        "drop_params": True,
-    }
+def _message_to_input_items(message: Message) -> List[dict[str, Any]]:
+    items: List[dict[str, Any]] = []
 
-    if tools:
-        completion_params["tools"] = tools
-        completion_params["tool_choice"] = tool_choice
-        completion_params["parallel_tool_calls"] = parallel_tool_calls
-        del completion_params["response_format"]
+    if message.role == "tool":
+        call_id = message.tool_call_id or ""
+        items.append(
+            {
+                "type": "function_call_output",
+                "call_id": call_id,
+                "output": message.content or "",
+            }
+        )
+        return items
 
-    return completion_params
+    if message.content is not None:
+        items.append(
+            {
+                "type": "message",
+                "role": message.role,
+                "content": message.content,
+            }
+        )
+
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            call_id = getattr(tool_call, "id", None) or getattr(tool_call, "name", "")
+            arguments = getattr(tool_call, "arguments", {})
+            if not isinstance(arguments, str):
+                arguments = json.dumps(arguments)
+
+            items.append(
+                {
+                    "type": "function_call",
+                    "id": call_id,
+                    "call_id": call_id,
+                    "name": getattr(tool_call, "name", ""),
+                    "arguments": arguments,
+                }
+            )
+
+    if not items:
+        items.append(
+            {
+                "type": "message",
+                "role": message.role,
+                "content": message.content or "",
+            }
+        )
+
+    return items
 
 
-######
-# MAIN
-######
+def _serialize_messages_for_responses(messages: Iterable[Message]) -> List[dict[str, Any]]:
+    serialized: List[dict[str, Any]] = []
+    for message in messages:
+        serialized.extend(_message_to_input_items(message))
+    return serialized
+
+
+def _response_to_openai_message(response: Any) -> SimpleNamespace:
+    payload = response.to_dict() if hasattr(response, "to_dict") else response
+    output_items = payload.get("output") or []
+
+    text_parts: List[str] = []
+    tool_calls: List[SimpleNamespace] = []
+
+    for item in output_items:
+        item_type = item.get("type")
+        if item_type == "message":
+            for content in item.get("content") or []:
+                if content.get("type") == "output_text":
+                    text_parts.append(content.get("text") or "")
+        elif item_type == "function_call":
+            tool_calls.append(
+                SimpleNamespace(
+                    id=item.get("id") or item.get("call_id"),
+                    function=SimpleNamespace(
+                        name=item.get("name"),
+                        arguments=item.get("arguments"),
+                    ),
+                )
+            )
+
+    content = "".join(text_parts) if text_parts else None
+    return SimpleNamespace(role="assistant", content=content, tool_calls=tool_calls or None)
+
+
+class _Choice:
+    def __init__(self, index: int, message: SimpleNamespace) -> None:
+        self.index = index
+        self.message = message
 
 
 class Model(object):
-    def __init__(self, model: str, **kwargs):
+    def __init__(
+        self,
+        model: str,
+        client: Optional[AsyncOpenAI] = None,
+        *,
+        context_window: int = _DEFAULT_CONTEXT_WINDOW,
+        **client_kwargs: Any,
+    ):
         self.model = model
-        self.kwargs = kwargs
+        self._context_window = context_window
+        self._client = client or AsyncOpenAI(**client_kwargs)
 
     def get_context_window(self) -> int:
-        if get_max_tokens is None:
-            raise ImportError("litellm is required for the default Model runtime")
-        return get_max_tokens(self.model)
+        return self._context_window
 
     def count_tokens(self, text: str) -> int:
-        if encode is None:
-            raise ImportError("litellm is required for the default Model runtime")
-        return len(encode(model=self.model, text=text))
+        return 0
 
     def count_message_tokens(self, message: Message) -> int:
-        if token_counter is None:
-            raise ImportError("litellm is required for the default Model runtime")
-        return token_counter(model=self.model, messages=[message.to_openai_message()])
+        return 0
 
     def count_tool_tokens(self, tool: Tool) -> int:
-        num_tokens = self.count_tokens(tool.name)
-        num_tokens += self.count_tokens(tool.description)
-
-        parameters = tool.parameters
-        if "properties" in parameters:
-            for property in parameters["properties"]:
-                num_tokens += self.count_tokens(property)
-                value = parameters["properties"][property]
-                for field in value:
-                    if field == "type":
-                        num_tokens += 2
-                        num_tokens += self.count_tokens(value["type"])
-                    elif field == "description":
-                        num_tokens += 2
-                        num_tokens += self.count_tokens(value["description"])
-                    elif field == "enum":
-                        num_tokens -= 3
-                        for enum in value["enum"]:
-                            num_tokens += 3
-                            num_tokens += self.count_tokens(enum)
-
-            num_tokens += 11
-
-        num_tokens += 12
-        return num_tokens
+        return 0
 
     def truncate_messages(
-        self, messages: list[Message], headroom: int, tools: list[Tool] = []
+        self, messages: list[Message], headroom: int, tools: list[Tool] | None = None
     ) -> list[Message]:
-        """
-        Trims + drops messages to make room for the output headroom.
-
-        Rules:
-        1. The first message (user input) is always kept.
-        2. We drop older messages before newer ones.
-        3. We drop tool output before tool calls.
-        4. We drop evaluation messages before tool calls/outputs. (TODO)
-        """
-
-        input_message = messages[0]
-        headroom = self.get_context_window() - headroom
-        token_count = self.count_message_tokens(input_message)
-        token_count += sum(self.count_tool_tokens(tool) for tool in tools)
-
-        truncated_messages = [input_message]
-        for message in reversed(messages[1:]):
-            num_tokens = self.count_message_tokens(message)
-            if token_count + num_tokens > headroom:
-                if message.role == "tool":
-                    message.content = "[HIDDEN]"
-                    num_tokens = self.count_message_tokens(message)
-
-                    if token_count + num_tokens <= headroom:
-                        token_count += num_tokens
-                        truncated_messages.insert(1, message)
-                        continue
-
-                break
-
-            token_count += num_tokens
-            truncated_messages.insert(1, message)
-
-        return truncated_messages
+        return list(messages)
 
     async def run_async(
         self,
         messages: list[Message],
-        stream=False,
-        max_tokens=768,
-        temperature=0.7,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-        n=1,
-        tools=None,
-        tool_choice=None,
-        parallel_tool_calls=False,
-        response_format={"type": "text"},
-    ) -> any:
-        completion_params = clean_completion_params(
-            messages,
-            self.model,
-            stream,
-            max_tokens,
-            temperature,
-            top_p,
-            frequency_penalty,
-            presence_penalty,
-            n,
-            tools,
-            tool_choice,
-            parallel_tool_calls,
-            response_format,
-        )
-        if acompletion is None:
-            raise ImportError("litellm is required for the default Model runtime")
-        response = await acompletion(**{**completion_params, **self.kwargs})
-        if not stream:
-            if n == 1:
-                return response.choices[0].message
+        stream: bool = False,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        n: Optional[int] = None,
+        tools: Optional[Iterable[dict[str, Any]]] = None,
+        tool_choice: Any = None,
+        parallel_tool_calls: Optional[bool] = None,
+        response_format: Optional[dict[str, Any]] = None,
+        **request_options: Any,
+    ) -> Any:
+        del frequency_penalty, presence_penalty  # Unused in new API
 
-            return response.choices
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "input": _serialize_messages_for_responses(messages),
+        }
 
-        return response
+        if temperature is not None:
+            payload["temperature"] = temperature
+        if top_p is not None:
+            payload["top_p"] = top_p
+        if max_tokens is not None:
+            payload["max_output_tokens"] = max_tokens
+        if parallel_tool_calls is not None:
+            payload["parallel_tool_calls"] = parallel_tool_calls
+        if tools:
+            payload["tools"] = tools
+        if tool_choice is not None:
+            payload["tool_choice"] = tool_choice
+        if response_format and response_format != {"type": "text"}:
+            payload["text"] = {"format": response_format}
+
+        request_kwargs = {
+            key: request_options.pop(key)
+            for key in ("extra_headers", "extra_query", "extra_body", "timeout")
+            if key in request_options
+        }
+
+        if request_options:
+            payload.update(request_options)
+
+        if stream:
+            return self._client.responses.stream(**payload, **request_kwargs)
+
+        result_count = max(1, n or 1)
+        if result_count == 1:
+            response = await self._client.responses.create(**payload, **request_kwargs)
+            return _response_to_openai_message(response)
+
+        choices: List[_Choice] = []
+        for index in range(result_count):
+            response = await self._client.responses.create(**payload, **request_kwargs)
+            choices.append(_Choice(index, _response_to_openai_message(response)))
+        return choices
