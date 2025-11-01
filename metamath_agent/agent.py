@@ -18,6 +18,7 @@ from database.opensearch_wrapper import TheoremSearchClient
 from .config import AgentConfig
 from saplings.tools.metamath_tools import SearchTheoremsTool, VerifyProofTool
 from saplings.evaluators import ProofEvaluator
+from paths import agent_runs_folder_path
 
 
 def _make_tools(cfg: AgentConfig) -> list:
@@ -67,7 +68,7 @@ def build_agent(cfg: AgentConfig):
     raise ValueError(f"Unsupported algorithm: {cfg.algorithm}")
 
 
-def run_proof_search(goal: str, cfg: AgentConfig, *, out_dir: Path | None = None):
+def run_proof_search(goal: str, cfg: AgentConfig):
     """Run a search and persist a minimal JSONL log of the trajectory.
 
     Returns a tuple of (messages, score, is_solution, run_path)
@@ -75,7 +76,7 @@ def run_proof_search(goal: str, cfg: AgentConfig, *, out_dir: Path | None = None
 
     agent = build_agent(cfg)
     run_id = time.strftime("%Y%m%d-%H%M%S")
-    out_root = out_dir or Path("out") / "agent_runs" / run_id
+    out_root = Path(agent_runs_folder_path) / run_id
     out_root.mkdir(parents=True, exist_ok=True)
 
     (Path(out_root) / "config.json").write_text(
