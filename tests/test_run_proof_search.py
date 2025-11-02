@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from types import SimpleNamespace
 
 from metamath_agent.agent import run_proof_search
 from metamath_agent.config import AgentConfig
@@ -14,6 +13,7 @@ from tests.tools import (
     temporarily_remove_theorem_files,
 )
 from verification import verify_proof
+from saplings.dtos import Message
 
 
 def test_run_proof_search_rebuilds_theorem(monkeypatch):
@@ -49,12 +49,8 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                         proofs_package=proofs_package,
                     )
                     generated_name = gen.name
-                    message = SimpleNamespace(
-                        role="assistant",
-                        content=f"Stub proof found for {goal}",
-                        tool_calls=[],
-                        score=1.0,
-                    )
+                    message = Message.assistant(f"Stub proof found for {goal}")
+                    message.score = 1.0
                     yield [message], 1.0, True
 
             return StubAgent()

@@ -4,7 +4,6 @@ from typing import List, Optional
 
 # Third party
 from agents import Runner
-from pydantic import BaseModel, Field
 
 # Local
 from saplings.dtos import Message, Evaluation
@@ -29,17 +28,17 @@ class Evaluator(object):
             max_output_tokens=self.max_output_tokens,
         )
 
-    async def _run_single(self, trajectory: List[Message]) -> Evaluation:
+    def _run_single(self, trajectory: List[Message]) -> Evaluation:
         runner_input = serialize_messages_for_runner(trajectory)
-        result = await Runner.run(self.agent, input=runner_input)
+        result = Runner.run_sync(self.agent, input=runner_input)
         payload = result.final_output_as(EvaluationPayload)
         normalized = max(0.0, min(payload.score, 10.0)) / 10.0
         return Evaluation(score=normalized, reasoning=payload.reasoning)
 
-    async def run(self, trajectory: List[Message]) -> Evaluation:
+    def run(self, trajectory: List[Message]) -> Evaluation:
         evaluations = []
         for _ in range(max(1, self.n_samples)):
-            evaluations.append(await self._run_single(trajectory))
+            evaluations.append(self._run_single(trajectory))
 
         primary = evaluations[0]
         primary.score = mean(e.score for e in evaluations)

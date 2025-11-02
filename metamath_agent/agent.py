@@ -4,23 +4,21 @@ import json
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import List, Tuple
-
-from saplings.agents.AStar import AStarAgent
-from saplings.agents.Greedy import GreedyAgent
-from saplings.agents.MonteCarlo import MonteCarloAgent
-from saplings.agents.COT import COTAgent
-from saplings.dtos import Message
-from saplings.evaluator import Evaluator
 
 from database.opensearch_wrapper import TheoremSearchClient
-
-from .config import AgentConfig
+from paths import agent_runs_folder_path
+from saplings.agents.AStar import AStarAgent
+from saplings.agents.COT import COTAgent
+from saplings.agents.Greedy import GreedyAgent
+from saplings.agents.MonteCarlo import MonteCarloAgent
+from saplings.agents.factories import create_agent
+from saplings.dtos import Message
+from saplings.evaluator import Evaluator
 from saplings.tools.metamath_tools import (
     create_search_theorems_tool,
     create_verify_proof_tool,
 )
-from paths import agent_runs_folder_path
+from .config import AgentConfig
 
 
 def _make_tools(cfg: AgentConfig) -> list:
@@ -39,19 +37,34 @@ def _make_tools(cfg: AgentConfig) -> list:
     ]
 
 
+def _make_search_agent_factory(cfg: AgentConfig, tools: list):
+    def factory(prompt: str, max_output_tokens: int):
+        return create_agent(
+            name="Saplings Search Agent",
+            instructions=prompt,
+            tools=tools,
+            model_name=cfg.model,
+            max_output_tokens=max_output_tokens,
+            temperature=1.0,
+            parallel_tool_calls=cfg.parallel_tool_calls,
+        )
+
+    return factory
+
+
 def build_agent(cfg: AgentConfig):
     tools = _make_tools(cfg)
     evaluator = Evaluator(model_name=cfg.model)
+    agent_factory = _make_search_agent_factory(cfg, tools)
 
     common_kwargs = dict(
-        tools=tools,
+        agent_factory=agent_factory,
         model_name=cfg.model,
         evaluator=evaluator,
         b_factor=cfg.b_factor,
         max_depth=cfg.max_depth,
         threshold=cfg.threshold,
         verbose=cfg.verbose,
-        tool_choice=cfg.tool_choice,
         parallel_tool_calls=cfg.parallel_tool_calls,
     )
 
@@ -91,9 +104,6 @@ def run_proof_search(goal: str, cfg: AgentConfig):
                 record = {
                     "event": "tool" if item.role == "tool" else "assistant",
                     "content": item.content,
-                    "tool_calls": [
-                        getattr(tc, "__dict__", str(tc)) for tc in (item.tool_calls or [])
-                    ],
                     "score": item.score,
                 }
                 fp.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -108,10 +118,6 @@ def run_proof_search(goal: str, cfg: AgentConfig):
                         {
                             "role": m.role,
                             "content": m.content,
-                            "tool_calls": [
-                                getattr(tc, "__dict__", str(tc))
-                                for tc in (m.tool_calls or [])
-                            ],
                             "score": m.score,
                         }
                         for m in messages

@@ -1,7 +1,7 @@
 # Standard library
 import heapq
 from math import inf
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from saplings.evaluator import Evaluator
 from saplings.agents.Base import BaseAgent
@@ -12,7 +12,7 @@ from saplings.prompts import AGENT_PROMPT
 class AStarAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Any],
+        agent_factory: Callable[[str, int], Any],
         model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
@@ -20,12 +20,11 @@ class AStarAgent(BaseAgent):
         max_depth: int = 5,
         threshold: float = 1.0,
         verbose: bool = True,
-        tool_choice: str = "auto",
         parallel_tool_calls: bool = False,
         update_prompt: Optional[callable] = None,
     ):
         super().__init__(
-            tools,
+            agent_factory,
             model_name,
             evaluator,
             prompt,
@@ -33,7 +32,6 @@ class AStarAgent(BaseAgent):
             max_depth,
             threshold,
             verbose,
-            tool_choice,
             parallel_tool_calls,
             update_prompt,
         )
@@ -41,7 +39,8 @@ class AStarAgent(BaseAgent):
     def should_terminate(self, node: Node) -> bool:
         return self.is_solution_node(node)
 
-    async def run_iter_async(self, prompt: str, messages: List[Message] = []):
+    def run_iter(self, prompt: str, messages: List[Message] | None = None):
+        messages = list(messages or [])
         # Max priority queue
         root_node = Node([Message.user(prompt)])
         best_score = -inf  # Negative scores for max behavior
@@ -66,7 +65,7 @@ class AStarAgent(BaseAgent):
                 break
 
             # Expand the current node, add children to the frontier
-            async for item in self.expand(curr_node, messages):
+            for item in self.expand(curr_node, messages):
                 yield item
             for child in curr_node.children:
                 heapq.heappush(frontier, (-child.score, child))

@@ -17,7 +17,7 @@ class Node(object):
         context_items: Optional[list] = None,
     ):
         self.id = id(self)
-        self.messages = messages  # Tool calls + responses
+        self.messages = messages
         self.parent = parent
         self.children = []
         self.depth = parent.depth + 1 if parent else 1
@@ -109,14 +109,6 @@ class Node(object):
         return not self.children
 
     @property
-    def is_tool_call(self) -> bool:
-        """
-        Returns whether this node represents a tool call.
-        """
-
-        return any(bool(message.tool_calls) for message in self.messages)
-
-    @property
     def is_user_input(self) -> bool:
         """
         Returns whether this node represents a user input.
@@ -134,9 +126,7 @@ class Node(object):
 
     def get_messages(self, include_evals: bool = False) -> List[Message]:
         """
-        Get all the messages represented by this node. I.e. the tool call(s),
-        tool response(s), and (optionally) the model's self-evaluation of the
-        node.
+        Get all the messages represented by this node.
         """
 
         if include_evals and self.evaluation:

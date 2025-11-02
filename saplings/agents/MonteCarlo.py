@@ -1,5 +1,5 @@
 # Standard library
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 # Local
 from saplings.agents.Base import BaseAgent
@@ -11,7 +11,7 @@ from saplings.prompts import AGENT_PROMPT
 class MonteCarloAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Any],
+        agent_factory: Callable[[str, int], Any],
         model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
@@ -20,12 +20,11 @@ class MonteCarloAgent(BaseAgent):
         threshold: float = 1.0,
         max_rollouts: int = 10,
         verbose: bool = True,
-        tool_choice: str = "auto",
         parallel_tool_calls: bool = False,
         update_prompt: Optional[callable] = None,
     ):
         super().__init__(
-            tools,
+            agent_factory,
             model_name,
             evaluator,
             prompt,
@@ -33,7 +32,6 @@ class MonteCarloAgent(BaseAgent):
             max_depth,
             threshold,
             verbose,
-            tool_choice,
             parallel_tool_calls,
             update_prompt,
         )
@@ -48,13 +46,11 @@ class MonteCarloAgent(BaseAgent):
 
         return False
 
-    async def generate_root_node(self, prompt: str, messages: List[Message]):
-        """
-        Generates and evaluates the root node in the search tree.
-        """
+    def generate_root_node(self, prompt: str, messages: List[Message]):
+        """Generates and evaluates the root node in the search tree."""
 
         node = Node([Message.user(prompt)])
-        async for item in self.expand(node, messages):
+        for item in self.expand(node, messages):
             yield item
         yield node
 
@@ -86,18 +82,19 @@ class MonteCarloAgent(BaseAgent):
 
         return node
 
-    async def simulate(self, node: Node, messages: List[Message] = []):
+    def simulate(self, node: Node, messages: List[Message] | None = None):
         """
         Simulates a rollout from the given node until a terminal node is reached.
         If the terminal node is a solution node, then we mark the tree as solved.
         Otherwise, we backpropagate the score up the tree and a self-reflection.
         """
 
+        messages = list(messages or [])
         curr_node = node.get_best_child()
         if not curr_node:
             return
         while not self.is_terminal_node(curr_node):
-            async for item in self.expand(curr_node, messages):
+            for item in self.expand(curr_node, messages):
                 yield item
             curr_node = curr_node.get_best_child()
             if not curr_node:
@@ -114,11 +111,12 @@ class MonteCarloAgent(BaseAgent):
             # curr_node.self_reflect() # TODO
             curr_node.backpropagate()
 
-    async def run_iter_async(self, prompt: str, messages: list[Message] = []):
+    def run_iter(self, prompt: str, messages: List[Message] | None = None):
         self.log(f"Running a Monte Carlo tree search\n\n\033[37m{prompt}\033[0m\n")
 
+        messages = list(messages or [])
         root = None
-        async for item in self.generate_root_node(prompt, messages):
+        for item in self.generate_root_node(prompt, messages):
             root = item
             yield item
 
@@ -135,10 +133,10 @@ class MonteCarloAgent(BaseAgent):
 
             self.log(f"STARTING ROLLOUT (rollout_id={num_rollouts})")
 
-            async for item in self.expand(node, messages):
+            for item in self.expand(node, messages):
                 yield item
 
-            async for item in self.simulate(node):
+            for item in self.simulate(node, messages):
                 yield item
 
             self.log(f"FINISHED ROLLOUT (rollout_id={num_rollouts})")

@@ -1,5 +1,5 @@
 # Standard library
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 # Local
 from saplings.dtos import Node, Message
@@ -11,7 +11,7 @@ from saplings.evaluator import Evaluator
 class GreedyAgent(BaseAgent):
     def __init__(
         self,
-        tools: List[Any],
+        agent_factory: Callable[[str, int], Any],
         model_name: Optional[str] = None,
         evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
@@ -19,12 +19,11 @@ class GreedyAgent(BaseAgent):
         max_depth: int = 5,
         threshold: float = 1.0,
         verbose: bool = True,
-        tool_choice: str = "auto",
         parallel_tool_calls: bool = False,
         update_prompt: Optional[callable] = None,
     ):
         super().__init__(
-            tools,
+            agent_factory,
             model_name,
             evaluator,
             prompt,
@@ -32,7 +31,6 @@ class GreedyAgent(BaseAgent):
             max_depth,
             threshold,
             verbose,
-            tool_choice,
             parallel_tool_calls,
             update_prompt,
         )
@@ -40,12 +38,13 @@ class GreedyAgent(BaseAgent):
     def should_terminate(self, node: Node) -> bool:
         return self.is_terminal_node(node)
 
-    async def run_iter_async(self, prompt: str, messages: list[Message] = []):
+    def run_iter(self, prompt: str, messages: List[Message] | None = None):
+        messages = list(messages or [])
         self.log(f"Running a greedy best-first search\n\n\033[37m{prompt}\033[0m\n")
 
         best_node = Node([Message.user(prompt)])
         while not self.should_terminate(best_node):
-            async for item in self.expand(best_node, messages):
+            for item in self.expand(best_node, messages):
                 yield item
 
             best_node = self.get_best_node(best_node)

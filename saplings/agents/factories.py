@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Iterable, List, Optional, Sequence
 
 from agents import Agent as OAAgent, ModelSettings
@@ -50,55 +49,15 @@ def create_agent(
 
 
 def _message_to_input_items(message: Message) -> List[dict[str, Any]]:
-    items: List[dict[str, Any]] = []
-
-    if message.role == "tool":
-        call_id = message.tool_call_id or ""
-        items.append(
-            {
-                "type": "function_call_output",
-                "call_id": call_id,
-                "output": message.content or "",
-            }
-        )
-        return items
-
-    if message.content is not None:
-        items.append(
-            {
-                "type": "message",
-                "role": message.role,
-                "content": message.content,
-            }
-        )
-
-    if message.tool_calls:
-        for tool_call in message.tool_calls:
-            call_id = getattr(tool_call, "id", None) or getattr(tool_call, "name", "")
-            arguments = getattr(tool_call, "arguments", {})
-            if not isinstance(arguments, str):
-                arguments = json.dumps(arguments)
-
-            items.append(
-                {
-                    "type": "function_call",
-                    "id": call_id,
-                    "call_id": call_id,
-                    "name": getattr(tool_call, "name", ""),
-                    "arguments": arguments,
-                }
-            )
-
-    if not items:
-        items.append(
-            {
-                "type": "message",
-                "role": message.role,
-                "content": message.content or "",
-            }
-        )
-
-    return items
+    if message.content is None:
+        return []
+    return [
+        {
+            "type": "message",
+            "role": message.role,
+            "content": message.content,
+        }
+    ]
 
 
 def serialize_messages_for_runner(messages: Iterable[Message]) -> List[dict[str, Any]]:
