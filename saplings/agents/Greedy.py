@@ -1,63 +1,56 @@
 # Standard library
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Sequence
 
 # Local
-from saplings.dtos import Node, Message
+from saplings.agents.BaseAlgo import BaseAlgo
+from saplings.dtos import Node, Task, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
-from saplings.agents.Base import BaseAgent
-from saplings.evaluator import Evaluator
 
 
-class GreedyAgent(BaseAgent):
+class GreedyAgent(BaseAlgo):
     def __init__(
         self,
-        agent_factory: Callable[[str, int], Any],
+        *,
         model_name: Optional[str] = None,
-        evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
         max_depth: int = 5,
         threshold: float = 1.0,
-        verbose: bool = True,
+        update_prompt: Optional[Callable[[List[TrajectoryStep]], str]] = None,
+        tools: Optional[Sequence[Any]] = None,
         parallel_tool_calls: bool = False,
-        update_prompt: Optional[callable] = None,
+        max_tool_call_tokens: int = 2048,
     ):
         super().__init__(
-            agent_factory,
-            model_name,
-            evaluator,
-            prompt,
-            b_factor,
-            max_depth,
-            threshold,
-            verbose,
-            parallel_tool_calls,
-            update_prompt,
+            model_name=model_name,
+            prompt=prompt,
+            b_factor=b_factor,
+            max_depth=max_depth,
+            threshold=threshold,
+            update_prompt=update_prompt,
+            tools=tools,
+            parallel_tool_calls=parallel_tool_calls,
+            max_tool_call_tokens=max_tool_call_tokens,
         )
 
     def should_terminate(self, node: Node) -> bool:
         return self.is_terminal_node(node)
 
-    def run_iter(self, prompt: str, messages: List[Message] | None = None):
-        messages = list(messages or [])
-        self.log(f"Running a greedy best-first search\n\n\033[37m{prompt}\033[0m\n")
-
-        best_node = Node([Message.user(prompt)])
+    def run_iter(self, prompt: str, steps: List[TrajectoryStep] | None = None):
+        steps = list(steps or [])
+        best_node = Node(Task.from_goal(prompt))
         while not self.should_terminate(best_node):
-            for item in self.expand(best_node, messages):
+            for item in self.expand(best_node, steps):
                 yield item
 
             best_node = self.get_best_node(best_node)
 
-        messages, score, is_solution = (
+        trajectory, score, is_solution = (
             best_node.get_trajectory(),
             best_node.score,
             self.is_solution_node(best_node),
         )
 
-        self.log(
-            f"\033[1;32mBest trajectory (score={score}, is_solution={is_solution}):\033[0m\n\n"
-            + "\n".join(str(m) for m in messages)
-        )
+        # No logging
 
-        yield (messages, score, is_solution)
+        yield (trajectory, score, is_solution)

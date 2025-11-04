@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Iterable, List, Optional, Sequence
 
 from agents import Agent as OAAgent, ModelSettings
 
-from saplings.dtos import Message
+from saplings.dtos.Node import TrajectoryStep
+from saplings.dtos.tasks.Task import Task
+from saplings.dtos.tasks.TaskResult import TaskResult
 
 
 def create_agent(
@@ -12,6 +15,7 @@ def create_agent(
     name: str,
     instructions: str,
     tools: Sequence[Any] | None = None,
+    handoffs: Sequence[Any] | None = None,
     model_name: Optional[str] = None,
     max_output_tokens: int = 2048,
     temperature: float = 1.0,
@@ -23,14 +27,9 @@ def create_agent(
     Factory helper that creates an OpenAI Agents SDK Agent with consistent defaults.
     """
 
-    extra_args = {"parallel_tool_calls": parallel_tool_calls}
-    if extra_model_args:
-        extra_args.update(extra_model_args)
-
     model_settings = ModelSettings(
         max_output_tokens=max_output_tokens,
-        temperature=temperature,
-        extra_args=extra_args,
+        temperature=temperature
     )
 
     kwargs: dict[str, Any] = {
@@ -40,6 +39,8 @@ def create_agent(
     }
     if tools:
         kwargs["tools"] = list(tools)
+    if handoffs:
+        kwargs["handoffs"] = list(handoffs)
     if model_name:
         kwargs["model"] = model_name
     if output_type is not None:
@@ -48,24 +49,45 @@ def create_agent(
     return OAAgent(**kwargs)
 
 
-def _message_to_input_items(message: Message) -> List[dict[str, Any]]:
-    if message.content is None:
-        return []
+def _task_to_input_items(task: Task) -> List[dict[str, Any]]:
+    payload = {"task": task.to_dict()}
     return [
         {
             "type": "message",
-            "role": message.role,
-            "content": message.content,
+            "role": "user",
+            "content": json.dumps(payload, ensure_ascii=False),
         }
     ]
 
 
-def serialize_messages_for_runner(messages: Iterable[Message]) -> List[dict[str, Any]]:
+def _result_to_input_items(result: TaskResult) -> List[dict[str, Any]]:
+    payload = {"result": result.to_dict()}
+    return [
+        {
+            "type": "message",
+            "role": "assistant",
+            "content": json.dumps(payload, ensure_ascii=False),
+        }
+    ]
+
+
+def serialize_trajectory_for_runner(steps: Iterable[TrajectoryStep]) -> List[dict[str, Any]]:
     """
-    Converts Message objects into the Responses API payload used by Runner sessions.
+    Converts Task/TaskResult trajectory steps into Responses API payload items.
     """
 
     serialized: List[dict[str, Any]] = []
-    for message in messages:
-        serialized.extend(_message_to_input_items(message))
+    ordered_steps = list(steps)
+    if not ordered_steps:
+        return serialized
+
+    # Emit the initial task
+    serialized.extend(_task_to_input_items(ordered_steps[0].task))
+
+    # For subsequent steps, interleave agent outputs with follow-up tasks.
+    for step in ordered_steps[1:]:
+        if step.result:
+            serialized.extend(_result_to_input_items(step.result))
+        serialized.extend(_task_to_input_items(step.task))
+
     return serialized

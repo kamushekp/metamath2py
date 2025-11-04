@@ -1,39 +1,37 @@
 # Standard library
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Sequence
 
 # Local
-from saplings.agents.Base import BaseAgent
-from saplings.dtos import Message, Node
-from saplings.evaluator import Evaluator
+from saplings.agents.BaseAlgo import BaseAlgo
+from saplings.dtos import Node, Task, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
 
 
-class MonteCarloAgent(BaseAgent):
+class MonteCarloAgent(BaseAlgo):
     def __init__(
         self,
-        agent_factory: Callable[[str, int], Any],
+        *,
         model_name: Optional[str] = None,
-        evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
         max_depth: int = 5,
         threshold: float = 1.0,
         max_rollouts: int = 10,
-        verbose: bool = True,
+        update_prompt: Optional[Callable[[List[TrajectoryStep]], str]] = None,
+        tools: Optional[Sequence[Any]] = None,
         parallel_tool_calls: bool = False,
-        update_prompt: Optional[callable] = None,
+        max_tool_call_tokens: int = 2048,
     ):
         super().__init__(
-            agent_factory,
-            model_name,
-            evaluator,
-            prompt,
-            b_factor,
-            max_depth,
-            threshold,
-            verbose,
-            parallel_tool_calls,
-            update_prompt,
+            model_name=model_name,
+            prompt=prompt,
+            b_factor=b_factor,
+            max_depth=max_depth,
+            threshold=threshold,
+            update_prompt=update_prompt,
+            tools=tools,
+            parallel_tool_calls=parallel_tool_calls,
+            max_tool_call_tokens=max_tool_call_tokens,
         )
         self.max_rollouts = max_rollouts
 
@@ -46,11 +44,11 @@ class MonteCarloAgent(BaseAgent):
 
         return False
 
-    def generate_root_node(self, prompt: str, messages: List[Message]):
+    def generate_root_node(self, prompt: str, steps: List[TrajectoryStep]):
         """Generates and evaluates the root node in the search tree."""
 
-        node = Node([Message.user(prompt)])
-        for item in self.expand(node, messages):
+        node = Node(Task.from_goal(prompt))
+        for item in self.expand(node, steps):
             yield item
         yield node
 
@@ -82,19 +80,19 @@ class MonteCarloAgent(BaseAgent):
 
         return node
 
-    def simulate(self, node: Node, messages: List[Message] | None = None):
+    def simulate(self, node: Node, steps: List[TrajectoryStep] | None = None):
         """
         Simulates a rollout from the given node until a terminal node is reached.
         If the terminal node is a solution node, then we mark the tree as solved.
         Otherwise, we backpropagate the score up the tree and a self-reflection.
         """
 
-        messages = list(messages or [])
+        steps = list(steps or [])
         curr_node = node.get_best_child()
         if not curr_node:
             return
         while not self.is_terminal_node(curr_node):
-            for item in self.expand(curr_node, messages):
+            for item in self.expand(curr_node, steps):
                 yield item
             curr_node = curr_node.get_best_child()
             if not curr_node:
@@ -103,7 +101,7 @@ class MonteCarloAgent(BaseAgent):
         if not curr_node:
             return
 
-        self.log(f"\033[1;31mReached terminal node\033[0m\n\n{curr_node}\n")
+        # No logging
 
         if self.is_solution_node(curr_node):
             curr_node.mark_as_solved()
@@ -111,17 +109,14 @@ class MonteCarloAgent(BaseAgent):
             # curr_node.self_reflect() # TODO
             curr_node.backpropagate()
 
-    def run_iter(self, prompt: str, messages: List[Message] | None = None):
-        self.log(f"Running a Monte Carlo tree search\n\n\033[37m{prompt}\033[0m\n")
-
-        messages = list(messages or [])
+    def run_iter(self, prompt: str, steps: List[TrajectoryStep] | None = None):
+        steps = list(steps or [])
         root = None
-        for item in self.generate_root_node(prompt, messages):
+        for item in self.generate_root_node(prompt, steps):
             root = item
             yield item
 
         if root is None:
-            self.log("\033[1;31mFailed to generate initial trajectory; aborting.\033[0m")
             yield ([], 0.0, False)
             return
 
@@ -131,35 +126,23 @@ class MonteCarloAgent(BaseAgent):
             if not node:  # All paths exhausted
                 break
 
-            self.log(f"STARTING ROLLOUT (rollout_id={num_rollouts})")
-
-            for item in self.expand(node, messages):
+            for item in self.expand(node, steps):
                 yield item
 
-            for item in self.simulate(node, messages):
+            for item in self.simulate(node, steps):
                 yield item
-
-            self.log(f"FINISHED ROLLOUT (rollout_id={num_rollouts})")
 
             num_rollouts += 1
 
-        if root.is_solved:
-            self.log("\033[1;32mFound a solution! Terminating search.\033[0m")
-        else:
-            self.log(
-                "\033[1;31mNo solution found. Returning the best trajectory available.\033[0m"
-            )
+        # No logging
 
         best_node = self.get_best_node(root)
-        messages, score, is_solution = (
+        trajectory, score, is_solution = (
             best_node.get_trajectory(),
             best_node.score,
             self.is_solution_node(best_node),
         )
 
-        self.log(
-            f"\033[1;32mBest trajectory (score={score}, is_solution={is_solution}):\033[0m\n\n"
-            + "\n".join(str(m) for m in messages)
-        )
+        # No logging
 
-        yield (messages, score, is_solution)
+        yield (trajectory, score, is_solution)

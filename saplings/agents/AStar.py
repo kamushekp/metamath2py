@@ -1,89 +1,69 @@
 # Standard library
 import heapq
 from math import inf
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Sequence
 
-from saplings.evaluator import Evaluator
-from saplings.agents.Base import BaseAgent
-from saplings.dtos import Message, Node
+from saplings.agents.BaseAlgo import BaseAlgo
+from saplings.dtos import Node, Task, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
 
 
-class AStarAgent(BaseAgent):
+class AStarAgent(BaseAlgo):
     def __init__(
         self,
-        agent_factory: Callable[[str, int], Any],
+        *,
         model_name: Optional[str] = None,
-        evaluator: Optional[Evaluator] = None,
         prompt: str = AGENT_PROMPT,
         b_factor: int = 3,
         max_depth: int = 5,
         threshold: float = 1.0,
-        verbose: bool = True,
+        tools: Optional[Sequence[Any]] = None,
         parallel_tool_calls: bool = False,
-        update_prompt: Optional[callable] = None,
+        max_tool_call_tokens: int = 2048,
     ):
         super().__init__(
-            agent_factory,
-            model_name,
-            evaluator,
-            prompt,
-            b_factor,
-            max_depth,
-            threshold,
-            verbose,
-            parallel_tool_calls,
-            update_prompt,
+            model_name=model_name,
+            prompt=prompt,
+            b_factor=b_factor,
+            max_depth=max_depth,
+            threshold=threshold,
+            tools=tools,
+            parallel_tool_calls=parallel_tool_calls,
+            max_tool_call_tokens=max_tool_call_tokens,
         )
 
     def should_terminate(self, node: Node) -> bool:
         return self.is_solution_node(node)
 
-    def run_iter(self, prompt: str, messages: List[Message] | None = None):
-        messages = list(messages or [])
-        # Max priority queue
-        root_node = Node([Message.user(prompt)])
+    def run_iter(self, prompt: str, steps: List[TrajectoryStep] | None = None):
+        steps = list(steps or [])
+        root_task = Task.from_goal(prompt)
+        root_node = Node(root_task)
         best_score = -inf  # Negative scores for max behavior
         frontier = []
-
-        # Push the initial node to the frontier
         heapq.heappush(frontier, (0, root_node))
 
-        self.log(f"Running an A* search\n\n\033[37m{prompt}\033[0m\n")
         while frontier:
-            # Get the next node to explore
             neg_score, curr_node = heapq.heappop(frontier)
             curr_score = -neg_score  # Convert back to positive score
-
-            # Update the best score
             if curr_score > best_score:
                 best_score = curr_score
 
-            # Stop search if current node is a solution
             if self.should_terminate(curr_node):
-                self.log("\033[1;32mFound a solution! Terminating search.\033[0m")
                 break
 
-            # Expand the current node, add children to the frontier
-            for item in self.expand(curr_node, messages):
+            for item in self.expand(curr_node, steps):
                 yield item
             for child in curr_node.children:
                 heapq.heappush(frontier, (-child.score, child))
         else:
-            self.log(
-                "\033[1;31mNo solution found. Returning the best trajectory available.\033[0m"
-            )
+            pass
 
         best_node = self.get_best_node(root_node)
-        messages, score, is_solution = (
+        trajectory, score, is_solution = (
             best_node.get_trajectory(),
             best_node.score,
             self.is_solution_node(best_node),
         )
 
-        self.log(
-            f"\033[1;32mBest trajectory (score={score}, is_solution={is_solution}):\033[0m\n\n"
-            + "\n".join(str(m) for m in messages)
-        )
-
-        yield (messages, score, is_solution)
+        yield (trajectory, score, is_solution)

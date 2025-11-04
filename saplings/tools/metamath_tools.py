@@ -8,20 +8,6 @@ from database.opensearch_wrapper import TheoremSearchClient
 from verification import verify_proof
 
 
-def _format_search_results(output: Any) -> str:
-    if not output:
-        return "No results."
-    lines: List[str] = []
-    for i, r in enumerate(output, start=1):
-        loc = ""
-        if r.get("start_line") and r.get("end_line"):
-            loc = f" [{r['start_line']}-{r['end_line']}]"
-        lines.append(
-            f"{i}. {r['path']} (score={r['score']:.2f}){loc}\n{(r.get('snippet') or '').strip()}"
-        )
-    return "\n\n".join(lines)
-
-
 def create_search_theorems_tool(
     client: TheoremSearchClient,
     *,
@@ -53,21 +39,7 @@ def create_search_theorems_tool(
             for r in results
         ]
 
-    tool = search_theorems
-    setattr(tool, "saplings_is_terminal", False)
-    setattr(tool, "saplings_format_output", _format_search_results)
-    return tool
-
-
-def _format_verification(output: Any) -> str:
-    if not isinstance(output, dict):
-        return str(output)
-    if output.get("success"):
-        return f"Verification OK: {output.get('statement_name')}"
-    return (
-        f"Verification FAIL at stage {output.get('stage')}: "
-        f"{output.get('error_message') or ''}"
-    )
+    return search_theorems
 
 
 def create_verify_proof_tool(
@@ -98,7 +70,4 @@ def create_verify_proof_tool(
             "error_message": result.error_message,
         }
 
-    tool = verify
-    setattr(tool, "saplings_is_terminal", True)
-    setattr(tool, "saplings_format_output", _format_verification)
-    return tool
+    return verify

@@ -1,30 +1,38 @@
-# Standard library
+from __future__ import annotations
+
 import math
 from collections import deque
+from dataclasses import dataclass
 from typing import Generator, List, Optional
 
-# Local
-from saplings.dtos.Message import Message
-from saplings.dtos.Evaluation import Evaluation
+from saplings.dtos.evaluations.Evaluation import Evaluation
+from saplings.dtos.tasks.Task import Task
+from saplings.dtos.tasks.TaskResult import TaskResult
+
+
+@dataclass
+class TrajectoryStep:
+    task: Task
+    result: Optional[TaskResult] = None
 
 
 class Node(object):
     def __init__(
         self,
-        messages: List[Message],
-        evaluation: Optional[Evaluation] = None,
+        task: Task,
+        result: Optional[TaskResult] = None,
         parent: Optional["Node"] = None,
         context_items: Optional[list] = None,
     ):
         self.id = id(self)
-        self.messages = messages
+        self.task = task
+        self.result = result
         self.parent = parent
-        self.children = []
+        self.children: List["Node"] = []
         self.depth = parent.depth + 1 if parent else 1
         self.visits = 0
-        self._value = 0
         self.is_solved = False
-        self.set_evaluation(evaluation)
+        self._value = self.score
         self.context_items = context_items
 
     def __repr__(self):
@@ -44,12 +52,12 @@ class Node(object):
         elif self.value >= 0.67:
             value_color = green
 
-        if len(self.messages) == 1:
-            messages_str = f"{tab}{str(self.messages[0])}"
-        else:
-            messages_str = f"\n".join(
-                f"{tab}{str(message)}" for message in self.messages
-            )
+        messages_str = f"{tab}Goal: {self.task.goal}"
+        assertion = getattr(self.task.theorem, "assertion", None)
+        if assertion:
+            messages_str += f"\n{tab}Assertion: {assertion}"
+        if self.result:
+            messages_str += f"\n{tab}Result: {self.result.summary}"
 
         node_str = f"{bold}NODE({reset}\n"
         node_str += f"{tab}{bold}ID:{reset} {self.id}"
@@ -61,7 +69,7 @@ class Node(object):
         node_str += f"\n{tab}{bold}VALUE:{reset} {value_color}{self.value}{reset}"
         node_str += (
             f"\n{tab}{bold}REFLECTION:{reset} {value_color}{self.evaluation.reasoning}{reset}"
-            if self.evaluation
+        if self.evaluation
             else ""
         )
         node_str += f"\n{bold}){reset}"
@@ -74,11 +82,8 @@ class Node(object):
 
     @property
     def score(self) -> float:
-        """
-        Returns the self-evaluation score of this node (float between 0 and 1).
-        """
-
-        return self.evaluation.score if self.evaluation else 0
+        evaluation = self.evaluation
+        return evaluation.score if evaluation else 0.0
 
     @property
     def value(self) -> float:
@@ -90,17 +95,6 @@ class Node(object):
         return self._value
 
     @property
-    def height(self) -> int:
-        """
-        Returns the height of the tree (i.e. # of levels) rooted at this node.
-        """
-
-        if self.children:
-            return 1 + max(child.height for child in self.children)
-
-        return 1
-
-    @property
     def is_leaf(self) -> bool:
         """
         Returns whether this node is a leaf node.
@@ -108,45 +102,34 @@ class Node(object):
 
         return not self.children
 
+    # Removed unused is_user_input accessor
+
+    def set_result(self, result: TaskResult):
+        self.result = result
+        if result.evaluation:
+            self._value = result.evaluation.score
+        else:
+            self._value = 0.0
+
+    def attach_evaluation(self, evaluation: Evaluation):
+        if not self.result:
+            raise ValueError("Cannot attach evaluation without a task result.")
+        self.result.evaluation = evaluation
+        self._value = evaluation.score if evaluation else 0.0
+
     @property
-    def is_user_input(self) -> bool:
-        """
-        Returns whether this node represents a user input.
-        """
+    def evaluation(self) -> Optional[Evaluation]:
+        if not self.result:
+            return None
+        return self.result.evaluation
 
-        return any(message.role == "user" for message in self.messages)
-
-    def set_evaluation(self, evaluation: Optional[Evaluation]):
-        # NOTE: We only need this method because we create nodes before they're
-        # evaluated. This is just for convenience and can be confusing. Should
-        # eventually refactor this.
-
-        self.evaluation = evaluation
-        self._value = evaluation.score if evaluation else 0
-
-    def get_messages(self, include_evals: bool = False) -> List[Message]:
-        """
-        Get all the messages represented by this node.
-        """
-
-        if include_evals and self.evaluation:
-            return self.messages + [self.evaluation.to_message()]
-
-        return self.messages
-
-    def get_trajectory(self, include_evals: bool = False) -> List[Message]:
-        """
-        Get all the messages in this search branch.
-        """
-
-        messages = []
-        node = self
+    def get_trajectory(self) -> List[TrajectoryStep]:
+        steps: List[TrajectoryStep] = []
+        node: Optional["Node"] = self
         while node:
-            messages += node.get_messages(include_evals)[::-1]
+            steps.append(TrajectoryStep(task=node.task, result=node.result))
             node = node.parent
-
-        messages = messages[::-1]
-        return messages
+        return list(reversed(steps))
 
     def add_children(self, children: List["Node"]):
         self.children.extend(children)

@@ -13,7 +13,7 @@ from tests.tools import (
     temporarily_remove_theorem_files,
 )
 from verification import verify_proof
-from saplings.dtos import Message
+from saplings.dtos import Evaluation, Task, TaskResult, TrajectoryStep
 
 
 def test_run_proof_search_rebuilds_theorem(monkeypatch):
@@ -49,26 +49,31 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                         proofs_package=proofs_package,
                     )
                     generated_name = gen.name
-                    message = Message.assistant(f"Stub proof found for {goal}")
-                    message.score = 1.0
-                    yield [message], 1.0, True
+                    task = Task.from_goal(goal)
+                    result = TaskResult(
+                        summary=f"Stub proof found for {goal}",
+                        used_theorems=[],
+                        verification=None,
+                        evaluation=Evaluation(score=1.0, reasoning="stub"),
+                        terminal=True,
+                    )
+                    trajectory = [TrajectoryStep(task=task, result=result)]
+                    yield trajectory, 1.0, True
 
             return StubAgent()
 
         monkeypatch.setattr("metamath_agent.agent.build_agent", fake_build_agent)
 
-        cfg = AgentConfig(verbose=False)
-        messages, score, is_solution, run_path = run_proof_search(description, cfg)
+        cfg = AgentConfig()
+        trajectory, score, is_solution = run_proof_search(description, cfg)
 
         assert is_solution is True
         assert score == 1.0
-        assert messages and getattr(messages[0], "content", "").startswith("Stub proof found")
+        assert trajectory and trajectory[0].result.summary.startswith("Stub proof found")
         assert generated_name == expected_name
         assert (tmp_classes / f"{generated_name}.py").exists()
         assert (tmp_proofs / f"{generated_name}.py").exists()
-        assert run_path.parent == Path(agent_runs_folder_path)
-        assert (run_path / "config.json").exists()
-        assert (run_path / "log.jsonl").exists()
+        # No logging artifacts expected
 
         clear_metamath2py_modules()
         result = verify_proof(generated_name)
@@ -83,8 +88,6 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
     orig_class_code = original_class_path.read_text(encoding="utf-8")
     orig_proof_code = original_proof_path.read_text(encoding="utf-8")
 
-    run_path_str = str(run_path) if run_path else "<no run path>"
-    print("\nrun_proof_search output stored in:", run_path_str)
     print("\n=== Original class (", theorem_name, ") ===\n", orig_class_code, sep="")
     print("\n=== Generated class (", generated_name, ") ===\n", gen_class_code, sep="")
     print("\n=== Original proof (", theorem_name, ") ===\n", orig_proof_code, sep="")

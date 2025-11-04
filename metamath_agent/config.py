@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal, Optional
 
 
-SearchAlgo = Literal["astar", "greedy", "mcts", "cot"]
+SearchAlgo = Literal["astar", "greedy", "mcts"]
 
 
 @dataclass
@@ -16,7 +16,6 @@ class AgentConfig:
     - max_depth: maximum search depth.
     - threshold: score threshold to consider a node a solution.
     - model: LLM model id passed to saplings Model (via liteLLM).
-    - verbose: enable saplings logs.
     - tool_choice: LLM tool choice policy ("auto" or "required").
     - parallel_tool_calls: whether to allow parallel tool calls.
     - index_name: OpenSearch index name to query (read-only expected).
@@ -28,7 +27,6 @@ class AgentConfig:
     max_depth: int = 6
     threshold: float = 1.0
     model: str = "gpt-5-mini"
-    verbose: bool = True
     tool_choice: str = "auto"
     parallel_tool_calls: bool = False
 
@@ -40,4 +38,3 @@ class AgentConfig:
     opensearch_use_ssl: bool = False
     opensearch_verify_certs: bool = False
     opensearch_http_auth: Optional[tuple[str, str]] = None
-

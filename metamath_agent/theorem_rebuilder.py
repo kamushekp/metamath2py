@@ -11,6 +11,7 @@ from typing import Iterator, Sequence
 from .agent import run_proof_search
 from .config import AgentConfig
 from paths import PathsEnum, classes_folder_path, proofs_folder_path
+from saplings.dtos import TrajectoryStep
 from verification import ProofCheckResult, verify_proof
 
 
@@ -92,15 +93,9 @@ class RebuildOutcome:
     generated_class_code: str
     generated_proof_code: str
     new_name: str
-    messages: Sequence[object]
+    trajectory: Sequence[TrajectoryStep]
     score: float
-    run_path: Path
     verification: ProofCheckResult
-
-    def cleanup_run_dir(self) -> None:
-        """Remove the agent run directory produced by proof search."""
-        if self.run_path.exists():
-            shutil.rmtree(self.run_path, ignore_errors=True)
 
 
 class ProofSearchRebuilder:
@@ -118,7 +113,7 @@ class ProofSearchRebuilder:
             raise ValueError("Expected name must differ from the original theorem name.")
 
         with _temporarily_remove_theorem_files(self.theorem_name) as (classes_dir, proofs_dir):
-            messages, score, is_solution, run_path = run_proof_search(self.goal, self.cfg)
+            trajectory, score, is_solution = run_proof_search(self.goal, self.cfg)
             if not is_solution:
                 raise RuntimeError("Proof search did not find a solution.")
 
@@ -153,9 +148,8 @@ class ProofSearchRebuilder:
             generated_class_code=generated_class_code,
             generated_proof_code=generated_proof_code,
             new_name=new_name,
-            messages=messages,
+            trajectory=trajectory,
             score=score,
-            run_path=Path(run_path),
             verification=verification_result,
         )
 
