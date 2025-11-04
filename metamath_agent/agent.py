@@ -2,17 +2,13 @@ from __future__ import annotations
 
 from database.opensearch_wrapper import TheoremSearchClient
 from saplings.agents.AStar import AStarAgent
-from saplings.agents.Greedy import GreedyAgent
-from saplings.agents.MonteCarlo import MonteCarloAgent
-from saplings.tools.metamath_tools import (
-    create_search_theorems_tool,
-    create_verify_proof_tool,
-)
+from saplings.agents.temporary_disabled.Greedy import GreedyAgent
+from saplings.agents.temporary_disabled.MonteCarlo import MonteCarloAgent
 from .config import AgentConfig
 
 
-def _make_tools(cfg: AgentConfig) -> list:
-    client = TheoremSearchClient(
+def _make_search_client(cfg: AgentConfig) -> TheoremSearchClient:
+    return TheoremSearchClient(
         host=cfg.opensearch_host,
         port=cfg.opensearch_port,
         index_name=cfg.index_name,
@@ -21,22 +17,17 @@ def _make_tools(cfg: AgentConfig) -> list:
         verify_certs=cfg.opensearch_verify_certs,
         http_auth=cfg.opensearch_http_auth,
     )
-    return [
-        create_search_theorems_tool(client),
-        create_verify_proof_tool(),
-    ]
 
 
 def build_agent(cfg: AgentConfig):
-    tools = _make_tools(cfg)
+    search_client = _make_search_client(cfg)
 
     common_kwargs = dict(
         model_name=cfg.model,
         b_factor=cfg.b_factor,
         max_depth=cfg.max_depth,
         threshold=cfg.threshold,
-        tools=tools,
-        parallel_tool_calls=cfg.parallel_tool_calls,
+        theorem_search_client=search_client,
     )
 
     algo = cfg.algorithm.lower()

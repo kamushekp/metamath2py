@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable, List, Optional, Sequence
+from typing import Any, Iterable, List, Optional
 
 from agents import RunConfig, Runner
 from agents.exceptions import MaxTurnsExceeded
@@ -10,45 +10,24 @@ from saplings.agents.factories import serialize_trajectory_for_runner
 from saplings.agents.predefined import TaskResultPayload, create_evaluation_crew_agent
 from saplings.dtos.Node import Node, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
-from saplings.agents.types import Candidate
 
 
 class BaseAlgo(object):
-    def __init__(
-        self,
-        *,
-        model_name: Optional[str] = None,
-        prompt: str = AGENT_PROMPT,
-        b_factor: int = 3,
-        max_depth: int = 5,
-        threshold: float = 1.0,
-        evaluation_agent: Optional[Any] = None,
-        tools: Optional[Sequence[Any]] = None,
-        parallel_tool_calls: bool = False,
-        max_tool_call_tokens: int = 2048,
-    ):
-        self.model_name = model_name
-        self.prompt = prompt
-        self.b_factor = b_factor
-        self.max_depth = max_depth
-        self.threshold = threshold
-        self.max_tool_call_tokens = max_tool_call_tokens
+    def __init__(self):
+        self.model_name = 'gpt-5-mini'
+        self.prompt = AGENT_PROMPT
+        self.b_factor = 3
+        self.max_depth = 5
+        self.threshold = 1.0
+        self.max_tool_call_tokens = 2048
         self.step_max_turns = 2
         self.eval_max_turns = 2
-        self.tools: Sequence[Any] = tuple(tools or ())
-        self.parallel_tool_calls = parallel_tool_calls
-        self.evaluation_agent = evaluation_agent or create_evaluation_crew_agent(
-            model_name=self.model_name,
-            max_output_tokens=1024,
-        )
-        # Candidate generation is delegated to a dedicated helper
+        self._theorem_search_client = theorem_search_client
+        self.evaluation_agent = create_evaluation_crew_agent()
         self._candidate_generator = CandidateGenerator(
-            model_name=self.model_name,
-            tools=self.tools,
-            max_output_tokens=self.max_tool_call_tokens,
+            theorem_search_client=self._theorem_search_client,
             b_factor=self.b_factor,
             step_max_turns=self.step_max_turns,
-            parallel_tool_calls=self.parallel_tool_calls
         )
 
     def is_terminal_node(self, node: Node) -> bool:
@@ -85,19 +64,6 @@ class BaseAlgo(object):
             return best_output_node
 
         return best_node
-
-    def update_prompts(self, trajectory: List[TrajectoryStep]):
-        self.prompt = self.update_system_prompt(trajectory)
-        self._candidate_generator.update_prompt_builder(self.update_system_prompt)
-
-    # ------------------------------------------------------------------
-    # Search helpers
-    # ------------------------------------------------------------------
-    def generate_candidates(
-        self, node: Node, prefix_steps: Optional[List[TrajectoryStep]] = None, n: Optional[int] = None
-    ) -> List[Candidate]:
-        """Deprecated: use the dedicated CandidateGenerator. Kept for compatibility."""
-        return self._candidate_generator.generate(node, prefix_steps, n)
 
     def evaluate(
         self, node: Node, prefix_steps: Optional[List[TrajectoryStep]] = None
@@ -144,7 +110,7 @@ class BaseAlgo(object):
         trajectory = list(prefix_steps or []) + node.get_trajectory()
         self.update_prompts(trajectory)
 
-        candidates = self.generate_candidates(node, prefix_steps)
+        candidates = self._candidate_generator.generate(node, prefix_steps)
         if not candidates:
             return
 
@@ -167,9 +133,6 @@ class BaseAlgo(object):
 
         node.add_children(children)
 
-    # ------------------------------------------------------------------
-    # Execution entrypoints
-    # ------------------------------------------------------------------
     def run(
         self, prompt: str, steps: Optional[List[TrajectoryStep]] = None, **kwargs
     ) -> Any:

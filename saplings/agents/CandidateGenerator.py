@@ -1,49 +1,35 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Any, Callable, List, Optional
 
 from agents import RunConfig, Runner
 from agents.exceptions import MaxTurnsExceeded
 
+from database.opensearch_wrapper import TheoremSearchClient
 from saplings.agents.factories import serialize_trajectory_for_runner
 from saplings.agents.predefined import TaskResultPayload, create_proof_crew_agent
 from saplings.agents.types import Candidate
 from saplings.dtos import VerificationOutcome
-from saplings.dtos.evaluations.Evaluation import Evaluation
 from saplings.dtos.Node import Node, TrajectoryStep
+from saplings.dtos.evaluations.Evaluation import Evaluation
 from saplings.dtos.tasks.Patch import PatchSet, apply_patch
 from saplings.dtos.tasks.Task import Task
 from saplings.dtos.tasks.TaskResult import TaskResult
 from saplings.dtos.tasks.TaskTransition import TaskTransition
 
 
-
 class CandidateGenerator:
-    """
-    Encapsulates generation of child candidates for a search node using
-    an OpenAI Agents SDK agent.
-
-    The generator handles all payload transformations internally so callers only
-    need to provide basic agent configuration data.
-    """
 
     def __init__(
         self,
         *,
+        theorem_search_client: TheoremSearchClient,
         b_factor: int,
-        step_max_turns: int
+        step_max_turns: int,
     ) -> None:
+        self._theorem_search_client = theorem_search_client
         self._b_factor = b_factor
         self._step_max_turns = step_max_turns
-
-    def update_prompt(self, trajectory: List[TrajectoryStep]) -> str:
-        return ''
-
-    def _build_agent(self, history: List[TrajectoryStep]) -> Any:
-        instructions = self.update_prompt(history)
-        return create_proof_crew_agent(
-            instructions=instructions,
-        )
 
     def generate(
         self,
@@ -94,6 +80,15 @@ class CandidateGenerator:
 
     def payload_to_task_result(self, payload: TaskResultPayload) -> TaskResult:
         return self._payload_to_task_result(payload)
+
+    def _build_prompt(self, history) -> str:
+        return ''
+
+    def _build_agent(self, history: List[TrajectoryStep]) -> Any:
+        return create_proof_crew_agent(
+            theorem_search_client=self._theorem_search_client,
+            instructions=self._build_prompt(history) or None,
+        )
 
     def _build_history(
         self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]

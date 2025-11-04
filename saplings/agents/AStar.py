@@ -1,36 +1,13 @@
 # Standard library
 import heapq
 from math import inf
-from typing import Any, Callable, List, Optional, Sequence
+from typing import List
 
 from saplings.agents.BaseAlgo import BaseAlgo
 from saplings.dtos import Node, Task, TrajectoryStep
-from saplings.prompts import AGENT_PROMPT
 
 
 class AStarAgent(BaseAlgo):
-    def __init__(
-        self,
-        *,
-        model_name: Optional[str] = None,
-        prompt: str = AGENT_PROMPT,
-        b_factor: int = 3,
-        max_depth: int = 5,
-        threshold: float = 1.0,
-        tools: Optional[Sequence[Any]] = None,
-        parallel_tool_calls: bool = False,
-        max_tool_call_tokens: int = 2048,
-    ):
-        super().__init__(
-            model_name=model_name,
-            prompt=prompt,
-            b_factor=b_factor,
-            max_depth=max_depth,
-            threshold=threshold,
-            tools=tools,
-            parallel_tool_calls=parallel_tool_calls,
-            max_tool_call_tokens=max_tool_call_tokens,
-        )
 
     def should_terminate(self, node: Node) -> bool:
         return self.is_solution_node(node)

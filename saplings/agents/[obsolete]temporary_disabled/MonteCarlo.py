@@ -1,10 +1,11 @@
 # Standard library
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Callable, List, Optional
 
 # Local
 from saplings.agents.BaseAlgo import BaseAlgo
 from saplings.dtos import Node, Task, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
+from database.opensearch_wrapper import TheoremSearchClient
 
 
 class MonteCarloAgent(BaseAlgo):
@@ -18,7 +19,7 @@ class MonteCarloAgent(BaseAlgo):
         threshold: float = 1.0,
         max_rollouts: int = 10,
         update_prompt: Optional[Callable[[List[TrajectoryStep]], str]] = None,
-        tools: Optional[Sequence[Any]] = None,
+        theorem_search_client: TheoremSearchClient,
         parallel_tool_calls: bool = False,
         max_tool_call_tokens: int = 2048,
     ):
@@ -29,7 +30,7 @@ class MonteCarloAgent(BaseAlgo):
             max_depth=max_depth,
             threshold=threshold,
             update_prompt=update_prompt,
-            tools=tools,
+            theorem_search_client=theorem_search_client,
             parallel_tool_calls=parallel_tool_calls,
             max_tool_call_tokens=max_tool_call_tokens,
         )

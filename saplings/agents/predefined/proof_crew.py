@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from saplings.agents.factories import create_agent
+from agents import Agent
+
+from database.opensearch_wrapper import TheoremSearchClient
+from saplings.tools.metamath_tools import (
+    create_search_theorems_tool,
+    create_verify_proof_tool,
+)
 
 
 class SymbolDeclPayload(BaseModel):
@@ -105,6 +111,7 @@ class TaskResultPayload(BaseModel):
         description="Atomic JSON-Patch operations to transform the current Task into the next state.",
     )
 
+
 class JsonPatchOp(BaseModel):
     op: str = Field(description="One of add/remove/replace")
     path: str = Field(description="JSON Pointer path to target field")
@@ -115,76 +122,63 @@ TaskResultPayload.model_rebuild()
 TaskPayload.model_rebuild()
 
 
-def _create_search_specialist() -> Any:
+def _create_search_specialist(search_tool) -> Agent:
     instructions = (
         "You are a theorem search specialist. Given a proof task, identify relevant "
         "theorems or lemmas that could advance the proof. Always return concise "
         "summaries and references that another agent can consume."
     )
-    return create_agent(
-        name="Proof Search Specialist",
-        instructions=instructions,
-        tools=[search_tool],
-        temperature=0.0,
-    )
+    kwargs: dict[str, Any] = {
+        "name": "Proof Search Specialist",
+        "instructions": instructions,
+        "tools": [search_tool],
+    }
+    return Agent(**kwargs)
 
 
-def _create_verification_specialist(verify_tool) -> Any:
+def _create_verification_specialist(verify_tool) -> Agent:
     instructions = (
         "You verify generated proof artifacts. When asked, run the verification tool "
         "and summarise the outcome. Return structured metadata describing failures."
     )
-    return create_agent(
-        name="Proof Verification Specialist",
-        instructions=instructions,
-        tools=[verify_tool],
-        temperature=0.0,
-    )
+    kwargs: dict[str, Any] = {
+        "name": "Proof Verification Specialist",
+        "instructions": instructions,
+        "tools": [verify_tool],
+    }
+    return Agent(**kwargs)
 
 
-def _create_step_planner(model_name: Optional[str]) -> Any:
+def _create_step_planner() -> Agent:
     instructions = (
         "You design the next proof step. Carefully inspect the task payload and "
         "decide how to extend the proof steps. Collaborate with specialists via "
         "handoffs when helpful. Produce a high-quality summary that other agents "
         "can follow."
     )
-    return create_agent(
-        name="Proof Step Planner",
-        instructions=instructions,
-        model_name=model_name,
-        temperature=0.3,
-    )
-
+    kwargs: dict[str, Any] = {
+        "name": "Proof Step Planner",
+        "instructions": instructions,
+    }
+    return Agent(**kwargs)
 
 
 def create_proof_crew_agent(
     *,
-    model_name: Optional[str],
-    max_output_tokens: int,
-    tools: Sequence[Any],
-    parallel_tool_calls: bool = False,
+    theorem_search_client: TheoremSearchClient,
     instructions: Optional[str] = None,
-) -> Any:
+) -> Agent:
     """
     Creates a multi-agent proof crew agent capable of collaborating on theorem tasks.
     """
 
-    search_tool = None
-    verify_tool = None
-    for tool in tools:
-        tool_name = _resolve_tool_name(tool)
-        if tool_name == "search_theorems":
-            search_tool = tool
-        elif tool_name == "verify_proof":
-            verify_tool = tool
+    # Base tools shared with the orchestrator
+    search_tool = create_search_theorems_tool(theorem_search_client)
+    verify_tool = create_verify_proof_tool()
 
-    specialists: List[Any] = []
-    if search_tool:
-        specialists.append(_create_search_specialist(search_tool))
-    if verify_tool:
-        specialists.append(_create_verification_specialist(verify_tool))
-    specialists.append(_create_step_planner(model_name))
+    search_specialist = _create_search_specialist(search_tool)
+    verification_specialist = _create_verification_specialist(verify_tool)
+    step_planner = _create_step_planner()
 
     base_instructions = (
         "You lead a coordinated crew that proves Metamath theorems. Each user message "
@@ -199,14 +193,12 @@ def create_proof_crew_agent(
         base_instructions if instructions is None else f"{base_instructions}\n\n{instructions}"
     )
 
-    return create_agent(
-        name="Proof Crew Orchestrator",
-        instructions=orchestrator_instructions,
-        model_name=model_name,
-        tools=list(tools),
-        handoffs=specialists,
-        max_output_tokens=max_output_tokens,
-        temperature=0.2,
-        parallel_tool_calls=parallel_tool_calls,
-        output_type=TaskResultPayload,
-    )
+    kwargs: dict[str, Any] = {
+        "name": "Proof Crew Orchestrator",
+        "instructions": orchestrator_instructions,
+        "tools": [search_tool, verify_tool],
+        "handoffs": [search_specialist, verification_specialist, step_planner],
+        "output_type": TaskResultPayload
+    }
+
+    return Agent(**kwargs)
