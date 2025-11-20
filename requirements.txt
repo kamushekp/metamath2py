@@ -1,0 +1,16 @@
+# Core agent orchestration
+openai-agents
+pydantic
+
+# Search and verification utilities
+opensearch-py
+tqdm
+strenum
+
+# Data handling and misc tooling
+pandas
+python-dotenv
+from-root
+
+# Testing
+pytest

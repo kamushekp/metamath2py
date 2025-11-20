@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from metamath_agent.agent import run_proof_search
 from metamath_agent.config import AgentConfig
-from paths import PathsEnum, agent_runs_folder_path
+from paths import PathsEnum
+from saplings.dtos.evaluations.evaluation import Evaluation
+from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.trajectory_step import TrajectoryStep
 from tests.tools import (
     clear_metamath2py_modules,
     expected_new_name,
@@ -13,7 +16,6 @@ from tests.tools import (
     temporarily_remove_theorem_files,
 )
 from verification import verify_proof
-from saplings.dtos import Evaluation, Task, TaskResult, TrajectoryStep
 
 
 def test_run_proof_search_rebuilds_theorem(monkeypatch):

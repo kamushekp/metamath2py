@@ -6,9 +6,9 @@ from agents import RunConfig, Runner
 from agents.exceptions import MaxTurnsExceeded
 
 from database.opensearch_wrapper import TheoremSearchClient
-from saplings.agents.factories import serialize_trajectory_for_runner
-from saplings.agents.predefined import TaskResultPayload, create_proof_crew_agent
-from saplings.agents.types import Candidate
+from saplings.saplings_agents.factories import serialize_trajectory_for_runner
+from saplings.saplings_agents.predefined import TaskResultPayload, create_proof_crew_agent
+from saplings.saplings_agents.types import Candidate
 from saplings.dtos.evaluations.evaluation import Evaluation
 from saplings.dtos.evaluations.verification_outcome import VerificationOutcome
 from saplings.dtos.node import Node

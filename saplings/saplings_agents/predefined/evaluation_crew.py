@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from agents import Agent
 
-from saplings.agents.predefined.proof_crew import TaskResultPayload
-from saplings.tools.metamath_tools import create_verify_proof_tool
+from saplings.saplings_agents.predefined.proof_crew import TaskResultPayload
+from saplings.tools.metamath_tools import verify_tool
 
 
-def _create_verification_specialist(verify_tool) -> Agent:
+def _create_verification_specialist() -> Agent:
     instructions = (
         "You verify generated proof artifacts. When asked, run the verification tool "
         "and summarise the outcome. Return structured metadata describing failures."
@@ -24,8 +22,7 @@ def _create_verification_specialist(verify_tool) -> Agent:
 def create_evaluation_crew_agent() -> Agent:
     """Builds a crew that inspects a trajectory and returns an evaluated TaskResult."""
 
-    verify_tool = create_verify_proof_tool()
-    verifier = _create_verification_specialist(verify_tool)
+    verifier = _create_verification_specialist()
 
     instructions = (
         "You evaluate a proof trajectory represented as JSON tasks/results. Analyse the "

@@ -2,7 +2,7 @@
 from typing import Callable, List, Optional
 
 # Local
-from saplings.agents.BaseAlgo import BaseAlgo
+from saplings.saplings_agents.base_algo import BaseAlgo
 from saplings.dtos import Node, Task, TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
 from database.opensearch_wrapper import TheoremSearchClient

@@ -7,10 +7,7 @@ from pydantic import BaseModel, Field
 from agents import Agent
 
 from database.opensearch_wrapper import TheoremSearchClient
-from saplings.tools.metamath_tools import (
-    create_search_theorems_tool,
-    create_verify_proof_tool,
-)
+from saplings.tools.metamath_tools import verify_tool, search_tool
 
 
 class SymbolDeclPayload(BaseModel):
@@ -173,11 +170,9 @@ def create_proof_crew_agent(
     """
 
     # Base tools shared with the orchestrator
-    search_tool = create_search_theorems_tool(theorem_search_client)
-    verify_tool = create_verify_proof_tool()
 
-    search_specialist = _create_search_specialist(search_tool)
-    verification_specialist = _create_verification_specialist(verify_tool)
+    search_specialist = _create_search_specialist()
+    verification_specialist = _create_verification_specialist()
     step_planner = _create_step_planner()
 
     base_instructions = (

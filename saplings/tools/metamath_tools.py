@@ -10,7 +10,7 @@ from verification import verify_proof
 theorem_search_client = TheoremSearchClient()
 
 @function_tool()
-async def search_theorems(
+async def search_tool(
     query: Annotated[str, "Natural-language query or target expression."],
     top_k: Annotated[int, "Max number of results to return."] = 5,
     context_window: Annotated[int, "Snippet size in lines."] = 40,
@@ -44,7 +44,7 @@ def _derive_module_name(path: str, default_pkg: str) -> str:
     return norm.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 
 @function_tool()
-async def verify(path_to_pyfile: Annotated[str, "Filesystem path to the proof .py file."]) -> Dict[str, Any]:
+async def verify_tool(path_to_pyfile: Annotated[str, "Filesystem path to the proof .py file."]) -> Dict[str, Any]:
     module_name = _derive_module_name(path_to_pyfile, "metamath2py.proofs")
     result = verify_proof(module_name)
     return {

@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, List
 
-from saplings.dtos import TrajectoryStep
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.trajectory_step import TrajectoryStep
 
 
 def _task_to_input_items(task: Task) -> List[dict[str, Any]]:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from database.opensearch_wrapper import TheoremSearchClient
-from saplings.agents.AStar import AStarAgent
-from saplings.agents.temporary_disabled.Greedy import GreedyAgent
-from saplings.agents.temporary_disabled.MonteCarlo import MonteCarloAgent
+from saplings.saplings_agents.a_star import AStarAgent
+from saplings.saplings_agents.temporary_disabled.Greedy import GreedyAgent
+from saplings.saplings_agents.temporary_disabled.MonteCarlo import MonteCarloAgent
 from .config import AgentConfig
 
 

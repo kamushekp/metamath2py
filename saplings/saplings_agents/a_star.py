@@ -3,8 +3,10 @@ import heapq
 from math import inf
 from typing import List
 
-from saplings.agents.BaseAlgo import BaseAlgo
-from saplings.dtos import Node, Task, TrajectoryStep
+from saplings.dtos.node import Node
+from saplings.dtos.tasks.task import Task
+from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.saplings_agents.base_algo import BaseAlgo
 
 
 class AStarAgent(BaseAlgo):

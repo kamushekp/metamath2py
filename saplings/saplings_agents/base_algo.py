@@ -5,12 +5,13 @@ from typing import Any, Iterable, List, Optional
 from agents import RunConfig, Runner
 from agents.exceptions import MaxTurnsExceeded
 
-from saplings.agents.CandidateGenerator import CandidateGenerator
-from saplings.agents.factories import serialize_trajectory_for_runner
-from saplings.agents.predefined import TaskResultPayload, create_evaluation_crew_agent
+from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.saplings_agents.candidate_generator import CandidateGenerator
+from saplings.saplings_agents.factories import serialize_trajectory_for_runner
+from saplings.saplings_agents.predefined import TaskResultPayload, create_evaluation_crew_agent
 from saplings.dtos.node import Node
-from saplings.dtos import TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
+from saplings.tools.metamath_tools import theorem_search_client
 
 
 class BaseAlgo(object):
