@@ -1,0 +1,46 @@
+{
+  "files": {
+    "classes/A0K0.py": {
+      "mtime": 1760957032.0,
+      "size": 2016
+    },
+    "classes/A1WQA.py": {
+      "mtime": 1760957032.0,
+      "size": 1555
+    },
+    "classes/A3AMB.py": {
+      "mtime": 1760957032.0,
+      "size": 1563
+    },
+    "classes/A3X5J.py": {
+      "mtime": 1760957032.0,
+      "size": 1497
+    },
+    "classes/A7OI2.py": {
+      "mtime": 1760957032.0,
+      "size": 623
+    },
+    "proofs/A0K0.py": {
+      "mtime": 1760957032.0,
+      "size": 819
+    },
+    "proofs/A1WQA.py": {
+      "mtime": 1761112400.0,
+      "size": 14537
+    },
+    "proofs/A3AMB.py": {
+      "mtime": 1760957032.0,
+      "size": 1440
+    },
+    "proofs/A3X5J.py": {
+      "mtime": 1760957032.0,
+      "size": 2978
+    },
+    "proofs/A7OI2.py": {
+      "mtime": 1760957032.0,
+      "size": 765
+    }
+  },
+  "index_name": "metamath-theorems",
+  "source_root": "/home/kamushek/PycharmProjects/metamath2py/database/data/Examples"
+}
