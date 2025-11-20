@@ -8,7 +8,8 @@ from agents.exceptions import MaxTurnsExceeded
 from saplings.agents.CandidateGenerator import CandidateGenerator
 from saplings.agents.factories import serialize_trajectory_for_runner
 from saplings.agents.predefined import TaskResultPayload, create_evaluation_crew_agent
-from saplings.dtos.Node import Node, TrajectoryStep
+from saplings.dtos.node import Node
+from saplings.dtos import TrajectoryStep
 from saplings.prompts import AGENT_PROMPT
 
 

@@ -98,6 +98,7 @@ class TheoremSearchClient:
 
         self._data_root = self._resolve_data_root()
         self._state_path = self.data_dir / self.INDEX_STATE_FILENAME
+        self.ensure_index()
 
     # ------------------------------------------------------------------
     # Dataset discovery helpers

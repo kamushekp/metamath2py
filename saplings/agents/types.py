@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-from saplings.dtos.tasks.TaskTransition import TaskTransition
+from saplings.dtos.tasks.task_transition import TaskTransition
 
 
 @dataclass

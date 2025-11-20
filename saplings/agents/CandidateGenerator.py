@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, List, Optional
+from typing import Any, List, Optional
 
 from agents import RunConfig, Runner
 from agents.exceptions import MaxTurnsExceeded
@@ -9,13 +9,14 @@ from database.opensearch_wrapper import TheoremSearchClient
 from saplings.agents.factories import serialize_trajectory_for_runner
 from saplings.agents.predefined import TaskResultPayload, create_proof_crew_agent
 from saplings.agents.types import Candidate
-from saplings.dtos import VerificationOutcome
-from saplings.dtos.Node import Node, TrajectoryStep
-from saplings.dtos.evaluations.Evaluation import Evaluation
-from saplings.dtos.tasks.Patch import PatchSet, apply_patch
-from saplings.dtos.tasks.Task import Task
-from saplings.dtos.tasks.TaskResult import TaskResult
-from saplings.dtos.tasks.TaskTransition import TaskTransition
+from saplings.dtos.evaluations.evaluation import Evaluation
+from saplings.dtos.evaluations.verification_outcome import VerificationOutcome
+from saplings.dtos.node import Node
+from saplings.dtos.tasks.patch import PatchSet, apply_patch
+from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.tasks.task_transition import TaskTransition
+from saplings.dtos.trajectory_step import TrajectoryStep
 
 
 class CandidateGenerator:

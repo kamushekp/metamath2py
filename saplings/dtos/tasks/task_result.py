@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from saplings.dtos import VerificationOutcome
-from saplings.dtos.evaluations.Evaluation import Evaluation
-from saplings.dtos.tasks.Patch import PatchSet
+from saplings.dtos.evaluations.verification_outcome import VerificationOutcome
+from saplings.dtos.evaluations.evaluation import Evaluation
+from saplings.dtos.tasks.patch import PatchSet
 
 
 @dataclass

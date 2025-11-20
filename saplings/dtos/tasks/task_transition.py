@@ -4,7 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Tuple, Any
 
-from saplings.dtos import Task, TaskResult
+from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.task_result import TaskResult
 
 
 @dataclass

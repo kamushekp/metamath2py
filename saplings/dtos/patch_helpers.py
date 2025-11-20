@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from saplings.dtos.tasks.Patch import PatchOp, PatchSet
-from saplings.dtos.Proof import ProofStep
+from saplings.dtos.tasks.patch import PatchOp, PatchSet
+from saplings.dtos.proof import ProofStep
 
 
 def _add(path: str, value: Any) -> PatchOp:
