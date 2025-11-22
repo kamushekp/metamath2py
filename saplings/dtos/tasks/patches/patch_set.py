@@ -11,15 +11,12 @@ from saplings.dtos.tasks.task import Task
 
 @dataclass
 class PatchSet:
+    summary: str
     theorem_ops: List[PatchTheoremStateOp] = field(default_factory=list)
     proof_ops: List[PatchProofStateOp] = field(default_factory=list)
-    goal: Optional[str] = None
 
     def apply(self, task: Task) -> Task:
         updated = copy.deepcopy(task)
-
-        if self.goal is not None:
-            updated.goal = self.goal
 
         for op in self.theorem_ops:
             op.apply(updated.theorem)
@@ -27,3 +24,8 @@ class PatchSet:
             op.apply(updated.proof)
 
         return updated
+
+
+@dataclass
+class PatchSetList:
+    patch_sets: List[PatchSet]

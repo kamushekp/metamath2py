@@ -3,16 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any, Tuple
 
-from saplings.dtos.tasks.generated_patch import GeneratedPatch
+from saplings.dtos.tasks.patches.patch_set import PatchSetList, PatchSet
 from saplings.dtos.tasks.task import Task
 
 
 @dataclass
 class TaskTransition:
     task_before: Task
-    patch: GeneratedPatch
+    patch: PatchSet
     task_after: Task
 
     def to_candidate_key(self) -> str:

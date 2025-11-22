@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Iterable
 
 from agents import Runner
 
 from saplings.dtos.node import Node
-from saplings.dtos.tasks.generated_patch import GeneratedPatch
+from saplings.dtos.tasks.patches.patch_set import PatchSetList
 from saplings.dtos.tasks.task_transition import TaskTransition
 from saplings.saplings_agents.factories import serialize_trajectory_for_runner
 from saplings.saplings_agents.predefined import create_proof_crew_agent
@@ -13,38 +13,32 @@ from saplings.saplings_agents.predefined import create_proof_crew_agent
 
 class CandidateGenerator:
 
-    def __init__(
-        self,
-        b_factor: int = 1,
-        step_max_turns: int = 1,
-    ):
-        self.b_factor = b_factor
-        self.step_max_turns = step_max_turns
-
-    def generate(self,node: Node) -> List[TaskTransition]:
-        history = self._build_history(node, prefix_steps)
+    def generate(self, node: Node) -> Iterable[TaskTransition]:
+        history = self._build_history(node)
         agent = self._build_agent(history)
         runner_input = self._prepare_runner_input(history)
 
         transitions: List[TaskTransition] = []
-        seen: set[tuple[Any, ...]] = set()
 
         run_result = Runner.run_sync(
             agent,
             input=runner_input
         )
 
-        generated = run_result.final_output_as(GeneratedPatch)
-        transition = self._build_transition(node, generated)
+        generated = run_result.final_output_as(PatchSetList)
 
-        if not transition:
-            return transitions
+        for patch_set in generated.patch_sets:
+            next_task = patch_set.apply(node.task)
+            transitions.append(TaskTransition(node.task, patch_set, next_task))
 
-        key = transition.to_candidate_key()
-        if key not in seen:
-            seen.add(key)
-            transitions.append(transition)
-        return transitions
+        seen = set()
+        for transition in transitions:
+            key = transition.to_candidate_key()
+            if key not in seen:
+                seen.add(key)
+                yield transition
+            else:
+                print('already seen')
 
     def _build_prompt(self, history) -> str:
         return ''
@@ -62,9 +56,3 @@ class CandidateGenerator:
             return []
 
         return serialize_trajectory_for_runner(history)
-
-    def _build_transition(self, node: Node, result: GeneratedPatch) -> Optional[TaskTransition]:
-        if not result.patch:
-            return None
-        patched_task = result.patch.apply(node.task)
-        return TaskTransition(task=patched_task, result=result)
