@@ -1,21 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
-
-@dataclass
-class SymbolDecl:
-    """A declaration of a symbol used in theorem statements.
-
-    For Metamath-style theorems, this may represent floating or essential
-    hypotheses. We keep it flexible: `name` is the symbol, `sort` is the type
-    (e.g., "wff", "setvar"), and `annotation` can carry extra info.
-    """
-
-    name: str
-    sort: Optional[str] = None
-    annotation: Dict[str, Any] = field(default_factory=dict)
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -23,34 +9,42 @@ class TheoremState:
     """Structured fields sufficient to materialize a theorem module."""
 
     label: Optional[str] = None
-    floating_args: List[SymbolDecl] = field(default_factory=list)
-    essential_args: List[SymbolDecl] = field(default_factory=list)
+    floating_args: List[str] = field(default_factory=list)
+    essential_args: List[str] = field(default_factory=list)
     essential_theorems: List[str] = field(default_factory=list)
     assertion: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "label": self.label,
-            "floating_args": [vars(x) for x in self.floating_args],
-            "essential_args": [vars(x) for x in self.essential_args],
+            "floating_args": list(self.floating_args),
+            "essential_args": list(self.essential_args),
             "essential_theorems": list(self.essential_theorems),
             "assertion": self.assertion,
-            "metadata": dict(self.metadata),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "TheoremState":
-        def _decls(items: List[Dict[str, Any]]) -> List[SymbolDecl]:
-            return [SymbolDecl(**i) for i in items or []]
+        def _coerce_symbols(items) -> List[str]:
+            coerced: List[str] = []
+            for item in items or []:
+                if isinstance(item, dict):
+                    name = item.get("name")
+                    if name is not None:
+                        coerced.append(str(name))
+                        continue
+                    # Fallback: use keys to retain some value rather than dropping data
+                    coerced.append(str(item))
+                else:
+                    coerced.append(str(item))
+            return coerced
 
         return cls(
             label=data.get("label"),
-            floating_args=_decls(data.get("floating_args", [])),
-            essential_args=_decls(data.get("essential_args", [])),
-            essential_theorems=list(data.get("essential_theorems", [])),
+            floating_args=_coerce_symbols(data.get("floating_args")),
+            essential_args=_coerce_symbols(data.get("essential_args")),
+            essential_theorems=[str(x) for x in data.get("essential_theorems", [])],
             assertion=data.get("assertion"),
-            metadata=dict(data.get("metadata", {})),
         )
 
 
@@ -58,22 +52,22 @@ class TheoremState:
 class ProofStep:
     """Atomic step of a proof: reference and optional substitutions/notes."""
 
-    reference: str
-    substitutions: Dict[str, Any] = field(default_factory=dict)
+    left: str
+    right: str
     comment: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "reference": self.reference,
-            "substitutions": dict(self.substitutions),
+            "left": self.left,
+            "right": self.right,
             "comment": self.comment,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ProofStep":
         return cls(
-            reference=data.get("reference", ""),
-            substitutions=dict(data.get("substitutions", {})),
+            left=data.get("left", ""),
+            right=data.get("right", ""),
             comment=data.get("comment"),
         )
 
@@ -83,18 +77,14 @@ class ProofState:
     """Structured representation of a proof as a sequence of steps."""
 
     steps: List[ProofStep] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "steps": [s.to_dict() for s in self.steps],
-            "metadata": dict(self.metadata),
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ProofState":
         return cls(
             steps=[ProofStep.from_dict(s) for s in data.get("steps", [])],
-            metadata=dict(data.get("metadata", {})),
         )
-

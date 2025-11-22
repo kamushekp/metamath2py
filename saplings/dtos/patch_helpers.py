@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from saplings.dtos.tasks.patch import PatchOp, PatchSet
 from saplings.dtos.proof import ProofStep
@@ -28,22 +28,12 @@ def replace_assertion_patch(text: str) -> PatchSet:
     return PatchSet(ops=[_replace("/theorem/assertion", text)])
 
 
-def add_floating_arg_patch(name: str, *, sort: Optional[str] = None, annotation: Optional[Dict[str, Any]] = None, index: Optional[int] = None) -> PatchSet:
-    payload = {"name": name}
-    if sort is not None:
-        payload["sort"] = sort
-    if annotation is not None:
-        payload["annotation"] = dict(annotation)
-    return PatchSet(ops=[_add(_index_path("/theorem/floating_args", index), payload)])
+def add_floating_arg_patch(name: str, *, index: Optional[int] = None) -> PatchSet:
+    return PatchSet(ops=[_add(_index_path("/theorem/floating_args", index), name)])
 
 
-def add_essential_arg_patch(name: str, *, sort: Optional[str] = None, annotation: Optional[Dict[str, Any]] = None, index: Optional[int] = None) -> PatchSet:
-    payload = {"name": name}
-    if sort is not None:
-        payload["sort"] = sort
-    if annotation is not None:
-        payload["annotation"] = dict(annotation)
-    return PatchSet(ops=[_add(_index_path("/theorem/essential_args", index), payload)])
+def add_essential_arg_patch(name: str, *, index: Optional[int] = None) -> PatchSet:
+    return PatchSet(ops=[_add(_index_path("/theorem/essential_args", index), name)])
 
 
 def add_essential_theorem_patch(label: str, *, index: Optional[int] = None) -> PatchSet:
@@ -52,4 +42,3 @@ def add_essential_theorem_patch(label: str, *, index: Optional[int] = None) -> P
 
 def replace_goal_patch(goal: str) -> PatchSet:
     return PatchSet(ops=[_replace("/goal", goal)])
-
