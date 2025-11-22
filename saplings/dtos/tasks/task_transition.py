@@ -10,8 +10,9 @@ from saplings.dtos.tasks.task import Task
 
 @dataclass
 class TaskTransition:
-    task: Task
-    result: GeneratedPatch
+    task_before: Task
+    patch: GeneratedPatch
+    task_after: Task
 
     def to_candidate_key(self) -> str:
         pass
