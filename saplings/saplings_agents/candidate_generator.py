@@ -21,66 +21,35 @@ from saplings.dtos.trajectory_step import TrajectoryStep
 
 class CandidateGenerator:
 
-    def __init__(
-        self,
-        *,
-        theorem_search_client: TheoremSearchClient,
-        b_factor: int,
-        step_max_turns: int,
-    ) -> None:
+    def __init__(self, theorem_search_client: TheoremSearchClient):
         self._theorem_search_client = theorem_search_client
-        self._b_factor = b_factor
-        self._step_max_turns = step_max_turns
 
-    def generate(
-        self,
-        node: Node,
-        prefix_steps: Optional[List[TrajectoryStep]] = None,
-        n: Optional[int] = None,
-    ) -> List[Candidate]:
-        sample_count = n if n else self._b_factor
+    def generate(self, node: Node, required_steps: int, prefix_steps: List[TrajectoryStep]) -> List[Candidate]:
         history = self._build_history(node, prefix_steps)
         agent = self._build_agent(history)
         runner_input = self._prepare_runner_input(node, history)
 
         candidates: List[Candidate] = []
         seen: set[tuple[Any, ...]] = set()
-        attempts = max(sample_count * 3, sample_count)
 
-        for _ in range(attempts):
-            try:
-                run_result = Runner.run_sync(
-                    agent,
-                    input=runner_input,
-                    config=RunConfig(max_turns=self._step_max_turns),
-                )
-            except MaxTurnsExceeded:
-                continue
+        run_result = Runner.run_sync(
+            agent,
+            input=runner_input
+        )
 
-            payload = run_result.final_output_as(TaskResultPayload)
-            task_result = self._payload_to_task_result(payload)
-            transition = self._build_transition(node, task_result)
-            if transition is None:
-                continue
+        payload = run_result.final_output_as(TaskResultPayload)
+        task_result = self._payload_to_task_result(payload)
+        transition = self._build_transition(node, task_result)
 
-            key = transition.to_candidate_key()
-            if key in seen:
-                continue
-            seen.add(key)
+        key = transition.to_candidate_key()
+        seen.add(key)
 
-            candidate = Candidate(
-                transition=transition,
-                context_items=run_result.to_input_list(),
-            )
-            candidates.append(candidate)
-
-            if len(candidates) >= sample_count:
-                break
-
+        candidate = Candidate(
+            transition=transition,
+            context_items=run_result.to_input_list(),
+        )
+        candidates.append(candidate)
         return candidates
-
-    def payload_to_task_result(self, payload: TaskResultPayload) -> TaskResult:
-        return self._payload_to_task_result(payload)
 
     def _build_prompt(self, history) -> str:
         return ''
@@ -91,16 +60,11 @@ class CandidateGenerator:
             instructions=self._build_prompt(history) or None,
         )
 
-    def _build_history(
-        self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]
+    def _build_history(self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]
     ) -> List[TrajectoryStep]:
         return list(prefix_steps or []) + node.get_trajectory()
 
-    def _prepare_runner_input(
-        self,
-        node: Node,
-        history: List[TrajectoryStep],
-    ) -> List[Any]:
+    def _prepare_runner_input(self, node: Node, history: List[TrajectoryStep]) -> List[Any]:
         if node.context_items is not None:
             return list(node.context_items)
 
@@ -147,9 +111,7 @@ class CandidateGenerator:
             metadata=dict(payload.metadata),
         )
 
-    def _build_transition(
-        self, node: Node, result: TaskResult
-    ) -> Optional[TaskTransition]:
+    def _build_transition(self, node: Node, result: TaskResult) -> Optional[TaskTransition]:
         if not result.patch:
             return None
         task_dict = node.task.to_dict()
