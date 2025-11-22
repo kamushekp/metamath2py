@@ -28,7 +28,6 @@ class Node(object):
                 patch_set=child.created_from_patch_set,
                 task_after=child.created_node_task,
             )
-
             task_transitions.append(transition)
 
         return task_transitions
