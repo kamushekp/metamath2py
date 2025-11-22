@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from saplings.dtos.tasks.patch_set import PatchSet
+from saplings.dtos.tasks import PatchSet
 
 
 class GeneratedPatch(BaseModel):

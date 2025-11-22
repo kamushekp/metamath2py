@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Optional
 
-from saplings.dtos.proof import ProofState, ProofStep
+from saplings.dtos.proof_state import ProofState, ProofStep
 
 
 @dataclass

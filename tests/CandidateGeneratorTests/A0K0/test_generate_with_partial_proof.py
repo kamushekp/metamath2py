@@ -15,7 +15,8 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
 
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.proof import ProofState, ProofStep, TheoremState
+from saplings.dtos.proof_state import ProofState, ProofStep
+from saplings.dtos.theorem_state import TheoremState
 from saplings.dtos.tasks.task import Task
 
 

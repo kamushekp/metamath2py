@@ -14,7 +14,7 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
 from metamath2py.classes.A0K0 import A0K0
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.proof import TheoremState
+from saplings.dtos.theorem_state import TheoremState
 from saplings.dtos.tasks.task import Task
 
 
