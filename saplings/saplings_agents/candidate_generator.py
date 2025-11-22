@@ -57,7 +57,7 @@ class CandidateGenerator:
     def _build_agent(self, history: List[TrajectoryStep]) -> Any:
         return create_proof_crew_agent(
             theorem_search_client=self._theorem_search_client,
-            instructions=self._build_prompt(history) or None,
+            instructions=self._build_prompt(history)
         )
 
     def _build_history(
@@ -109,9 +109,7 @@ class CandidateGenerator:
             metadata=dict(payload.metadata),
         )
 
-    def _build_transition(self, node: Node, result: TaskResult) -> Optional[TaskTransition]:
-        if not result.patch:
-            return None
+    def _build_transition(self, node: Node, result: TaskResult) -> TaskTransition:
         task_dict = node.task.to_dict()
         patched = apply_patch(task_dict, result.patch)
         next_task = Task.from_dict(patched)
