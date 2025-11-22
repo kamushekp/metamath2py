@@ -4,7 +4,7 @@ import math
 from collections import deque
 from typing import Generator, List, Optional
 
-from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.dtos.trajectory_step import TaskTransition
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.generated_patch import GeneratedPatch
 
@@ -93,11 +93,11 @@ class Node(object):
         self.result = result
         self._value = self.score
 
-    def get_trajectory(self) -> List[TrajectoryStep]:
-        steps: List[TrajectoryStep] = []
+    def get_trajectory(self) -> List[TaskTransition]:
+        steps: List[TaskTransition] = []
         node: Optional["Node"] = self
         while node:
-            steps.append(TrajectoryStep(task=node.task, result=node.result))
+            steps.append(TaskTransition(task=node.task, result=node.result))
             node = node.parent
         return list(reversed(steps))
 

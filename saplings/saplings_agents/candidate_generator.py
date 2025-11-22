@@ -4,13 +4,11 @@ from typing import Any, List, Optional
 
 from agents import Runner
 
-from saplings.saplings_agents.factories import serialize_trajectory_for_runner
-from saplings.saplings_agents.predefined import create_proof_crew_agent
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.generated_patch import GeneratedPatch
-from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.task_transition import TaskTransition
-from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.saplings_agents.factories import serialize_trajectory_for_runner
+from saplings.saplings_agents.predefined import create_proof_crew_agent
 
 
 class CandidateGenerator:
@@ -23,12 +21,7 @@ class CandidateGenerator:
         self.b_factor = b_factor
         self.step_max_turns = step_max_turns
 
-    def generate(
-        self,
-        node: Node,
-        prefix_steps: Optional[List[TrajectoryStep]] = None,
-        **_: Any,
-    ) -> List[TaskTransition]:
+    def generate(self,node: Node) -> List[TaskTransition]:
         history = self._build_history(node, prefix_steps)
         agent = self._build_agent(history)
         runner_input = self._prepare_runner_input(history)
@@ -56,17 +49,15 @@ class CandidateGenerator:
     def _build_prompt(self, history) -> str:
         return ''
 
-    def _build_agent(self, history: List[TrajectoryStep]) -> Any:
+    def _build_agent(self, history: List[TaskTransition]) -> Any:
         return create_proof_crew_agent(
             instructions=self._build_prompt(history),
         )
 
-    def _build_history(
-        self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]
-    ) -> List[TrajectoryStep]:
+    def _build_history(self, node: Node) -> List[TaskTransition]:
         return list(prefix_steps or []) + node.get_trajectory()
 
-    def _prepare_runner_input(self, history: List[TrajectoryStep]) -> List[Any]:
+    def _prepare_runner_input(self, history: List[TaskTransition]) -> List[Any]:
         if not history:
             return []
 

@@ -3,7 +3,7 @@ from typing import Callable, List, Optional
 
 # Local
 from saplings.saplings_agents.base_algo import BaseAlgo
-from saplings.dtos import Node, Task, TrajectoryStep
+from saplings.dtos import Node, Task, TaskTransition
 from saplings.prompts import AGENT_PROMPT
 from database.opensearch_wrapper import TheoremSearchClient
 
@@ -18,7 +18,7 @@ class MonteCarloAgent(BaseAlgo):
         max_depth: int = 5,
         threshold: float = 1.0,
         max_rollouts: int = 10,
-        update_prompt: Optional[Callable[[List[TrajectoryStep]], str]] = None,
+        update_prompt: Optional[Callable[[List[TaskTransition]], str]] = None,
         theorem_search_client: TheoremSearchClient,
         parallel_tool_calls: bool = False,
         max_tool_call_tokens: int = 2048,
@@ -45,7 +45,7 @@ class MonteCarloAgent(BaseAlgo):
 
         return False
 
-    def generate_root_node(self, prompt: str, steps: List[TrajectoryStep]):
+    def generate_root_node(self, prompt: str, steps: List[TaskTransition]):
         """Generates and evaluates the root node in the search tree."""
 
         node = Node(Task.from_goal(prompt))
@@ -81,7 +81,7 @@ class MonteCarloAgent(BaseAlgo):
 
         return node
 
-    def simulate(self, node: Node, steps: List[TrajectoryStep] | None = None):
+    def simulate(self, node: Node, steps: List[TaskTransition] | None = None):
         """
         Simulates a rollout from the given node until a terminal node is reached.
         If the terminal node is a solution node, then we mark the tree as solved.
@@ -110,7 +110,7 @@ class MonteCarloAgent(BaseAlgo):
             # curr_node.self_reflect() # TODO
             curr_node.backpropagate()
 
-    def run_iter(self, prompt: str, steps: List[TrajectoryStep] | None = None):
+    def run_iter(self, prompt: str, steps: List[TaskTransition] | None = None):
         steps = list(steps or [])
         root = None
         for item in self.generate_root_node(prompt, steps):

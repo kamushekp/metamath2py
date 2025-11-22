@@ -5,7 +5,7 @@ from typing import List
 
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.dtos.trajectory_step import TaskTransition
 from saplings.saplings_agents.base_algo import BaseAlgo
 
 
@@ -14,7 +14,7 @@ class AStarAgent(BaseAlgo):
     def should_terminate(self, node: Node) -> bool:
         return self.is_solution_node(node)
 
-    def run_iter(self, prompt: str, steps: List[TrajectoryStep] | None = None):
+    def run_iter(self, prompt: str, steps: List[TaskTransition] | None = None):
         steps = list(steps or [])
         root_task = Task.from_goal(prompt)
         root_node = Node(root_task)

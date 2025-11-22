@@ -7,7 +7,7 @@ from metamath_agent.config import AgentConfig
 from paths import PathsEnum
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.generated_patch import GeneratedPatch
-from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.dtos.trajectory_step import TaskTransition
 from tests.tools import (
     clear_metamath2py_modules,
     expected_new_name,
@@ -56,7 +56,7 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                         used_theorems=[],
                         terminal=True,
                     )
-                    trajectory = [TrajectoryStep(task=task, result=result)]
+                    trajectory = [TaskTransition(task=task, result=result)]
                     yield trajectory, 1.0, True
 
             return StubAgent()

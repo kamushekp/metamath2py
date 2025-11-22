@@ -11,7 +11,7 @@ from typing import Iterator, Sequence
 from .agent import run_proof_search
 from .config import AgentConfig
 from paths import PathsEnum, classes_folder_path, proofs_folder_path
-from saplings.dtos import TrajectoryStep
+from saplings.dtos import TaskTransition
 from verification import ProofCheckResult, verify_proof
 
 
@@ -93,7 +93,7 @@ class RebuildOutcome:
     generated_class_code: str
     generated_proof_code: str
     new_name: str
-    trajectory: Sequence[TrajectoryStep]
+    trajectory: Sequence[TaskTransition]
     score: float
     verification: ProofCheckResult
 

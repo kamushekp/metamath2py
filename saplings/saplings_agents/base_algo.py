@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional
 
-from saplings.dtos.trajectory_step import TrajectoryStep
+from saplings.dtos.trajectory_step import TaskTransition
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.prompts import AGENT_PROMPT
@@ -62,7 +62,7 @@ class BaseAlgo(object):
     def expand(
         self,
         node: Node,
-        prefix_steps: Optional[List[TrajectoryStep]] = None,
+        prefix_steps: Optional[List[TaskTransition]] = None,
     ):
         if self.is_terminal_node(node):
             return
@@ -90,7 +90,7 @@ class BaseAlgo(object):
         node.add_children(children)
 
     def run(
-        self, prompt: str, steps: Optional[List[TrajectoryStep]] = None, **kwargs
+        self, prompt: str, steps: Optional[List[TaskTransition]] = None, **kwargs
     ) -> Any:
         last_item = None
         for item in self.run_iter(prompt, steps or [], **kwargs):
@@ -98,6 +98,6 @@ class BaseAlgo(object):
         return last_item
 
     def run_iter(
-        self, prompt: str, steps: Optional[List[TrajectoryStep]] = None, **kwargs
+        self, prompt: str, steps: Optional[List[TaskTransition]] = None, **kwargs
     ) -> Iterable[Any]:
         raise NotImplementedError
