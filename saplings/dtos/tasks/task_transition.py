@@ -16,10 +16,6 @@ class TaskTransition:
 
     def to_candidate_key(self) -> str:
         """Generate a deterministic hash representing this transition content."""
-        payload = {
-            "before": self.task_before.to_dict(),
-            "patch": self.patch_set.to_dict(),
-            "after": self.task_after.to_dict(),
-        }
-        serialized = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+        key = str(self.task_before) + str(self.patch_set) + str(self.task_after)
+        serialized = json.dumps(key, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
