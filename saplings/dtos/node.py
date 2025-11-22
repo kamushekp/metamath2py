@@ -16,7 +16,6 @@ class Node(object):
         task: Task,
         result: Optional[TaskResult] = None,
         parent: Optional["Node"] = None,
-        context_items: Optional[list] = None,
     ):
         self.id = id(self)
         self.task = task
@@ -27,7 +26,6 @@ class Node(object):
         self.visits = 0
         self.is_solved = False
         self._value = self.score
-        self.context_items = context_items
 
     def __repr__(self):
         return self.__str__()

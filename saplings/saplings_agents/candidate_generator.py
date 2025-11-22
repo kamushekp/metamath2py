@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from agents import RunConfig, Runner
-from agents.exceptions import MaxTurnsExceeded
+from agents import Runner
 
 from database.opensearch_wrapper import TheoremSearchClient
 from saplings.saplings_agents.factories import serialize_trajectory_for_runner
 from saplings.saplings_agents.predefined import TaskResultPayload, create_proof_crew_agent
-from saplings.saplings_agents.types import Candidate
 from saplings.dtos.evaluations.evaluation import Evaluation
 from saplings.dtos.evaluations.verification_outcome import VerificationOutcome
 from saplings.dtos.node import Node
@@ -24,12 +22,15 @@ class CandidateGenerator:
     def __init__(self, theorem_search_client: TheoremSearchClient):
         self._theorem_search_client = theorem_search_client
 
-    def generate(self, node: Node, required_steps: int, prefix_steps: List[TrajectoryStep]) -> List[Candidate]:
+    def generate(self, node: Node,
+        prefix_steps: Optional[List[TrajectoryStep]] = None,
+        _required_steps: Optional[int] = None
+    ) -> List[TaskTransition]:
         history = self._build_history(node, prefix_steps)
         agent = self._build_agent(history)
-        runner_input = self._prepare_runner_input(node, history)
+        runner_input = self._prepare_runner_input(history)
 
-        candidates: List[Candidate] = []
+        transitions: List[TaskTransition] = []
         seen: set[tuple[Any, ...]] = set()
 
         run_result = Runner.run_sync(
@@ -38,18 +39,17 @@ class CandidateGenerator:
         )
 
         payload = run_result.final_output_as(TaskResultPayload)
-        task_result = self._payload_to_task_result(payload)
+        task_result = self.payload_to_task_result(payload)
         transition = self._build_transition(node, task_result)
 
-        key = transition.to_candidate_key()
-        seen.add(key)
+        if not transition:
+            return transitions
 
-        candidate = Candidate(
-            transition=transition,
-            context_items=run_result.to_input_list(),
-        )
-        candidates.append(candidate)
-        return candidates
+        key = transition.to_candidate_key()
+        if key not in seen:
+            seen.add(key)
+            transitions.append(transition)
+        return transitions
 
     def _build_prompt(self, history) -> str:
         return ''
@@ -60,14 +60,12 @@ class CandidateGenerator:
             instructions=self._build_prompt(history) or None,
         )
 
-    def _build_history(self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]
+    def _build_history(
+        self, node: Node, prefix_steps: Optional[List[TrajectoryStep]]
     ) -> List[TrajectoryStep]:
         return list(prefix_steps or []) + node.get_trajectory()
 
-    def _prepare_runner_input(self, node: Node, history: List[TrajectoryStep]) -> List[Any]:
-        if node.context_items is not None:
-            return list(node.context_items)
-
+    def _prepare_runner_input(self, history: List[TrajectoryStep]) -> List[Any]:
         if not history:
             return []
 
@@ -93,7 +91,7 @@ class CandidateGenerator:
             metadata=dict(payload.metadata),
         )
 
-    def _payload_to_task_result(self, payload: TaskResultPayload) -> TaskResult:
+    def payload_to_task_result(self, payload: TaskResultPayload) -> TaskResult:
         evaluation = self._evaluation_from_payload(payload.evaluation)
         verification = self._verification_from_payload(payload.verification)
         patch = None

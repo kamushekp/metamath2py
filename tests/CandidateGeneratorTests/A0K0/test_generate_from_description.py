@@ -30,5 +30,5 @@ def test_generate_from_description():
         b_factor=1,
         step_max_turns=1,
     )
-    candidates = generator.generate(node, n=1)
-    print(candidates)
+    transitions = generator.generate(node, n=1)
+    print(transitions)

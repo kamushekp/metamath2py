@@ -112,18 +112,16 @@ class BaseAlgo(object):
         trajectory = list(prefix_steps or []) + node.get_trajectory()
         self.update_prompts(trajectory)
 
-        candidates = self._candidate_generator.generate(node, prefix_steps)
-        if not candidates:
+        transitions = self._candidate_generator.generate(node, prefix_steps)
+        if not transitions:
             return
 
         children: List[Node] = []
-        for candidate in candidates:
-            transition = candidate.transition
+        for transition in transitions:
             child = Node(
                 transition.task,
                 result=transition.result,
                 parent=node,
-                context_items=list(candidate.context_items),
             )
             children.append(child)
 
