@@ -7,8 +7,6 @@ from agents import Runner
 from database.opensearch_wrapper import TheoremSearchClient
 from saplings.saplings_agents.factories import serialize_trajectory_for_runner
 from saplings.saplings_agents.predefined import TaskResultPayload, create_proof_crew_agent
-from saplings.dtos.evaluations.evaluation import Evaluation
-from saplings.dtos.evaluations.verification_outcome import VerificationOutcome
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.patch import PatchSet, apply_patch
 from saplings.dtos.tasks.task import Task
@@ -19,12 +17,21 @@ from saplings.dtos.trajectory_step import TrajectoryStep
 
 class CandidateGenerator:
 
-    def __init__(self, theorem_search_client: TheoremSearchClient):
+    def __init__(
+        self,
+        theorem_search_client: TheoremSearchClient,
+        b_factor: int = 1,
+        step_max_turns: int = 1,
+    ):
         self._theorem_search_client = theorem_search_client
+        self.b_factor = b_factor
+        self.step_max_turns = step_max_turns
 
-    def generate(self, node: Node,
+    def generate(
+        self,
+        node: Node,
         prefix_steps: Optional[List[TrajectoryStep]] = None,
-        _required_steps: Optional[int] = None
+        **_: Any,
     ) -> List[TaskTransition]:
         history = self._build_history(node, prefix_steps)
         agent = self._build_agent(history)
@@ -57,7 +64,7 @@ class CandidateGenerator:
     def _build_agent(self, history: List[TrajectoryStep]) -> Any:
         return create_proof_crew_agent(
             theorem_search_client=self._theorem_search_client,
-            instructions=self._build_prompt(history)
+            instructions=self._build_prompt(history),
         )
 
     def _build_history(
@@ -71,29 +78,7 @@ class CandidateGenerator:
 
         return serialize_trajectory_for_runner(history)
 
-    def _evaluation_from_payload(
-        self, payload: Optional[Any]
-    ) -> Optional[Evaluation]:
-        if not payload:
-            return None
-        score = max(0.0, min(payload.score, 10.0)) / 10.0
-        return Evaluation(score=score, reasoning=payload.reasoning)
-
-    def _verification_from_payload(
-        self, payload: Optional[Any]
-    ) -> Optional[VerificationOutcome]:
-        if not payload:
-            return None
-        return VerificationOutcome(
-            success=payload.success,
-            stage=payload.stage,
-            error_message=payload.error_message,
-            metadata=dict(payload.metadata),
-        )
-
     def payload_to_task_result(self, payload: TaskResultPayload) -> TaskResult:
-        evaluation = self._evaluation_from_payload(payload.evaluation)
-        verification = self._verification_from_payload(payload.verification)
         patch = None
         if getattr(payload, "patch", None):
             patch_items = [p.model_dump() for p in payload.patch]  # type: ignore[attr-defined]
@@ -102,11 +87,7 @@ class CandidateGenerator:
             summary=payload.summary,
             patch=patch,
             used_theorems=list(payload.used_theorems),
-            verification=verification,
-            evaluation=evaluation,
             terminal=payload.terminal,
-            artifacts=dict(payload.artifacts),
-            metadata=dict(payload.metadata),
         )
 
     def _build_transition(self, node: Node, result: TaskResult) -> TaskTransition:

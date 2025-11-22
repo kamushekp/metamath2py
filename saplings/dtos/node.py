@@ -5,7 +5,6 @@ from collections import deque
 from typing import Generator, List, Optional
 
 from saplings.dtos.trajectory_step import TrajectoryStep
-from saplings.dtos.evaluations.evaluation import Evaluation
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.task_result import TaskResult
 
@@ -59,11 +58,6 @@ class Node(object):
         node_str += messages_str
         node_str += f"\n{tab}{bold}DEPTH:{reset} {self.depth}"
         node_str += f"\n{tab}{bold}VALUE:{reset} {value_color}{self.value}{reset}"
-        node_str += (
-            f"\n{tab}{bold}REFLECTION:{reset} {value_color}{self.evaluation.reasoning}{reset}"
-        if self.evaluation
-            else ""
-        )
         node_str += f"\n{bold}){reset}"
 
         return node_str
@@ -74,8 +68,9 @@ class Node(object):
 
     @property
     def score(self) -> float:
-        evaluation = self.evaluation
-        return evaluation.score if evaluation else 0.0
+        if self.result and self.result.terminal:
+            return 1.0
+        return 0.0
 
     @property
     def value(self) -> float:
@@ -94,26 +89,9 @@ class Node(object):
 
         return not self.children
 
-    # Removed unused is_user_input accessor
-
     def set_result(self, result: TaskResult):
         self.result = result
-        if result.evaluation:
-            self._value = result.evaluation.score
-        else:
-            self._value = 0.0
-
-    def attach_evaluation(self, evaluation: Evaluation):
-        if not self.result:
-            raise ValueError("Cannot attach evaluation without a task result.")
-        self.result.evaluation = evaluation
-        self._value = evaluation.score if evaluation else 0.0
-
-    @property
-    def evaluation(self) -> Optional[Evaluation]:
-        if not self.result:
-            return None
-        return self.result.evaluation
+        self._value = self.score
 
     def get_trajectory(self) -> List[TrajectoryStep]:
         steps: List[TrajectoryStep] = []

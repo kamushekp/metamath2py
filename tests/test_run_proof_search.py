@@ -5,7 +5,6 @@ from pathlib import Path
 from metamath_agent.agent import run_proof_search
 from metamath_agent.config import AgentConfig
 from paths import PathsEnum
-from saplings.dtos.evaluations.evaluation import Evaluation
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.task_result import TaskResult
 from saplings.dtos.trajectory_step import TrajectoryStep
@@ -55,8 +54,6 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                     result = TaskResult(
                         summary=f"Stub proof found for {goal}",
                         used_theorems=[],
-                        verification=None,
-                        evaluation=Evaluation(score=1.0, reasoning="stub"),
                         terminal=True,
                     )
                     trajectory = [TrajectoryStep(task=task, result=result)]

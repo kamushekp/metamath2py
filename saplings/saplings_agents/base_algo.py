@@ -2,13 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Iterable, List, Optional
 
-from agents import RunConfig, Runner
-from agents.exceptions import MaxTurnsExceeded
-
 from saplings.dtos.trajectory_step import TrajectoryStep
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
-from saplings.saplings_agents.factories import serialize_trajectory_for_runner
-from saplings.saplings_agents.predefined import TaskResultPayload, create_evaluation_crew_agent
 from saplings.dtos.node import Node
 from saplings.prompts import AGENT_PROMPT
 from saplings.tools.metamath_tools import theorem_search_client
@@ -23,9 +18,7 @@ class BaseAlgo(object):
         self.threshold = 1.0
         self.max_tool_call_tokens = 2048
         self.step_max_turns = 2
-        self.eval_max_turns = 2
         self._theorem_search_client = theorem_search_client
-        self.evaluation_agent = create_evaluation_crew_agent()
         self._candidate_generator = CandidateGenerator(
             theorem_search_client=self._theorem_search_client,
             b_factor=self.b_factor,
@@ -67,40 +60,6 @@ class BaseAlgo(object):
 
         return best_node
 
-    def evaluate(
-        self, node: Node, prefix_steps: Optional[List[TrajectoryStep]] = None
-    ) -> Node:
-        if not node.result:
-            return node
-        if node.result.evaluation:
-            return node
-
-        trajectory = list(prefix_steps or []) + node.get_trajectory()
-        runner_input = serialize_trajectory_for_runner(trajectory)
-        try:
-            run_result = Runner.run_sync(
-                self.evaluation_agent,
-                input=runner_input,
-                config=RunConfig(max_turns=self.eval_max_turns),
-            )
-        except MaxTurnsExceeded:
-            return node
-        payload = run_result.final_output_as(TaskResultPayload)
-        evaluation_result = self._candidate_generator.payload_to_task_result(payload)
-
-        target = node.result
-        if evaluation_result.evaluation:
-            target.evaluation = evaluation_result.evaluation
-        if evaluation_result.verification and not target.verification:
-            target.verification = evaluation_result.verification
-        if evaluation_result.metadata:
-            target.metadata.update(evaluation_result.metadata)
-        if evaluation_result.summary and "evaluation_summary" not in target.metadata:
-            target.metadata["evaluation_summary"] = evaluation_result.summary
-        if evaluation_result.artifacts:
-            target.artifacts.update(evaluation_result.artifacts)
-        return node
-
     def expand(
         self,
         node: Node,
@@ -126,8 +85,6 @@ class BaseAlgo(object):
             children.append(child)
 
         for child in children:
-            if child.result and not child.result.evaluation:
-                self.evaluate(child, prefix_steps)
             if child.result:
                 yield child.result
 
