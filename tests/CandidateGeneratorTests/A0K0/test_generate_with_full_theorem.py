@@ -12,7 +12,6 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
             sys.path.append(str_path)
 
 from metamath2py.classes.A0K0 import A0K0
-from database.opensearch_wrapper import TheoremSearchClient
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.dtos.proof import SymbolDecl, TheoremState
@@ -51,10 +50,6 @@ def test_generate_with_full_theorem():
         theorem=theorem_state,
     )
     node = Node(task=task)
-    generator = CandidateGenerator(
-        theorem_search_client=TheoremSearchClient(),
-        b_factor=1,
-        step_max_turns=1,
-    )
+    generator = CandidateGenerator(b_factor=1, step_max_turns=1)
     transitions = generator.generate(node, n=1)
     print(transitions)

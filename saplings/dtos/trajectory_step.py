@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 
 
 @dataclass
 class TrajectoryStep:
     task: Task
-    result: Optional[TaskResult] = None
+    result: Optional[GeneratedPatch] = None

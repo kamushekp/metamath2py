@@ -4,7 +4,7 @@ import json
 from typing import Any, Iterable, List
 
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 from saplings.dtos.trajectory_step import TrajectoryStep
 
 
@@ -19,7 +19,7 @@ def _task_to_input_items(task: Task) -> List[dict[str, Any]]:
     ]
 
 
-def _result_to_input_items(result: TaskResult) -> List[dict[str, Any]]:
+def _result_to_input_items(result: GeneratedPatch) -> List[dict[str, Any]]:
     payload = {"result": result.to_dict()}
     return [
         {
@@ -32,7 +32,7 @@ def _result_to_input_items(result: TaskResult) -> List[dict[str, Any]]:
 
 def serialize_trajectory_for_runner(steps: Iterable[TrajectoryStep]) -> List[dict[str, Any]]:
     """
-    Converts Task/TaskResult trajectory steps into Responses API payload items.
+    Converts Task/GeneratedPatch trajectory steps into Responses API payload items.
     """
 
     serialized: List[dict[str, Any]] = []

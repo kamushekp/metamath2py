@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from agents import Agent
 
-from database.opensearch_wrapper import TheoremSearchClient
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 from saplings.tools.metamath_tools import search_tool
 
 
@@ -46,31 +46,6 @@ class TaskPayload(BaseModel):
     )
 
 
-class TaskResultPayload(BaseModel):
-    summary: str = Field(
-        description="Human-readable narration of the new proof step that was attempted."
-    )
-    used_theorems: List[str] = Field(
-        default_factory=list,
-        description="List of references or theorems used when constructing this step.",
-    )
-    terminal: bool = Field(
-        default=False,
-        description="Set to true when the proof is complete or irrecoverably blocked.",
-    )
-    patch: Optional[List["JsonPatchOp"]] = Field(
-        default=None,
-        description="Atomic JSON-Patch operations to transform the current Task into the next state.",
-    )
-
-
-class JsonPatchOp(BaseModel):
-    op: str = Field(description="One of add/remove/replace")
-    path: str = Field(description="JSON Pointer path to target field")
-    value: Any | None = Field(default=None, description="Value for add/replace")
-
-
-TaskResultPayload.model_rebuild()
 TaskPayload.model_rebuild()
 
 
@@ -104,7 +79,6 @@ def _create_step_planner() -> Agent:
 
 def create_proof_crew_agent(
     *,
-    theorem_search_client: TheoremSearchClient,
     instructions: Optional[str] = None,
 ) -> Agent:
     """
@@ -120,7 +94,7 @@ def create_proof_crew_agent(
         "You lead a coordinated crew that proves Metamath theorems. Each user message "
         "contains JSON under the key 'task' with theorem/proof state. Analyse the task, "
         "optionally hand off to specialists (search, planning), and respond "
-        "with JSON matching TaskResultPayload. Prefer returning an atomic JSON Patch under "
+        "with JSON matching GeneratedPatch. Prefer returning an atomic JSON Patch under "
         "'patch' that transforms the given task to the next state. Keep proof state consistent "
         "and set terminal=true only when the proof is complete or irrecoverably blocked."
     )
@@ -134,7 +108,7 @@ def create_proof_crew_agent(
         "instructions": orchestrator_instructions,
         "tools": [search_tool],
         "handoffs": [search_specialist, step_planner],
-        "output_type": TaskResultPayload
+        "output_type": GeneratedPatch
     }
 
     return Agent(**kwargs)

@@ -20,7 +20,6 @@ class BaseAlgo(object):
         self.step_max_turns = 2
         self._theorem_search_client = theorem_search_client
         self._candidate_generator = CandidateGenerator(
-            theorem_search_client=self._theorem_search_client,
             b_factor=self.b_factor,
             step_max_turns=self.step_max_turns,
         )

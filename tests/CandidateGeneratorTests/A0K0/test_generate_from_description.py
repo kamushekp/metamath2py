@@ -11,7 +11,6 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
         if str_path not in sys.path:
             sys.path.append(str_path)
 
-from database.opensearch_wrapper import TheoremSearchClient
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.task import Task
@@ -25,10 +24,6 @@ def _make_description_task() -> Node:
 
 def test_generate_from_description():
     node = _make_description_task()
-    generator = CandidateGenerator(
-        theorem_search_client=TheoremSearchClient(),
-        b_factor=1,
-        step_max_turns=1,
-    )
+    generator = CandidateGenerator(b_factor=1, step_max_turns=1)
     transitions = generator.generate(node, n=1)
     print(transitions)

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Tuple, Any
+from typing import Any, Tuple
 
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.task_result import TaskResult
 
 
 @dataclass
 class TaskTransition:
     task: Task
-    result: TaskResult
+    result: GeneratedPatch
 
     def to_candidate_key(self) -> Tuple[Any, ...]:
         result = self.result

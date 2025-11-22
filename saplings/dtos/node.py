@@ -6,14 +6,14 @@ from typing import Generator, List, Optional
 
 from saplings.dtos.trajectory_step import TrajectoryStep
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 
 
 class Node(object):
     def __init__(
         self,
         task: Task,
-        result: Optional[TaskResult] = None,
+        result: Optional[GeneratedPatch] = None,
         parent: Optional["Node"] = None,
     ):
         self.id = id(self)
@@ -89,7 +89,7 @@ class Node(object):
 
         return not self.children
 
-    def set_result(self, result: TaskResult):
+    def set_result(self, result: GeneratedPatch):
         self.result = result
         self._value = self.score
 

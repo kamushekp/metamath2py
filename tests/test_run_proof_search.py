@@ -6,7 +6,7 @@ from metamath_agent.agent import run_proof_search
 from metamath_agent.config import AgentConfig
 from paths import PathsEnum
 from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.task_result import TaskResult
+from saplings.dtos.tasks.generated_patch import GeneratedPatch
 from saplings.dtos.trajectory_step import TrajectoryStep
 from tests.tools import (
     clear_metamath2py_modules,
@@ -51,7 +51,7 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                     )
                     generated_name = gen.name
                     task = Task.from_goal(goal)
-                    result = TaskResult(
+                    result = GeneratedPatch(
                         summary=f"Stub proof found for {goal}",
                         used_theorems=[],
                         terminal=True,
