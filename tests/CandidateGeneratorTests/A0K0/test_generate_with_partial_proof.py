@@ -17,7 +17,7 @@ from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.dtos.proof_state import ProofState, ProofStep
 from saplings.dtos.theorem_state import TheoremState
-from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
 
 
 def _build_theorem_state() -> TheoremState:
@@ -46,7 +46,7 @@ def test_generate_with_partial_proof():
     theorem_state = _build_theorem_state()
     first_step = _first_step(base)
     current_proof = ProofState(steps=[first_step])
-    task = Task.from_goal(
+    task = CreateNodeTask.from_goal(
         "Complete the remainder of the proof for A0K0",
         theorem=theorem_state,
         proof=current_proof,

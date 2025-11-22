@@ -6,7 +6,7 @@
   - Добавлены saplings-инструменты для агента (перемещены прямо в папку `saplings`, без внешних адаптеров):
     - `SearchTheoremsTool` — вызывает `database.opensearch_wrapper.TheoremSearchClient.search` и возвращает релевантные сниппеты (включая `start_line`/`end_line`, если доступны).
     - `VerifyProofTool` — вызывает `metamath2py.verification.verify_proof` по пути к модулю proof и возвращает структурированный результат в `raw_output` (для последующей оценки).
-  - Добавлен экипаж оценщиков (`Proof Evaluation Crew`), который анализирует траекторию, при необходимости использует `verify_proof` и возвращает `GeneratedPatch`.
+  - Добавлен экипаж оценщиков (`Proof Evaluation Crew`), который анализирует траекторию, при необходимости использует `verify_proof` и возвращает `PatchSet`.
   - Реализован сборщик агента и запуск поиска: `metamath_agent/agent.py` с функциями `build_agent` и `run_proof_search`. Поддерживаются алгоритмы Saplings: `astar` (по умолчанию), `greedy`, `mcts`. Переключение — через конфигурацию. При этом слой `metamath_agent` сведен к минимуму (нет адаптеров, инструменты живут в `saplings/tools`).
   - Логирование ранa по умолчанию отключено; история шагов доступна только в рамках дерева поиска.
 

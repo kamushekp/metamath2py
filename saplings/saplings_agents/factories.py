@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, List
 
-from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.generated_patch import GeneratedPatch
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
+from saplings.dtos.tasks.generated_patch import PatchSet
 from saplings.dtos.trajectory_step import TaskTransition
 
 
-def _task_to_input_items(task: Task) -> List[dict[str, Any]]:
+def _task_to_input_items(task: CreateNodeTask) -> List[dict[str, Any]]:
     payload = {"task": task.to_dict()}
     return [
         {
@@ -19,7 +19,7 @@ def _task_to_input_items(task: Task) -> List[dict[str, Any]]:
     ]
 
 
-def _result_to_input_items(result: GeneratedPatch) -> List[dict[str, Any]]:
+def _result_to_input_items(result: PatchSet) -> List[dict[str, Any]]:
     payload = {"result": result.to_dict()}
     return [
         {
@@ -32,7 +32,7 @@ def _result_to_input_items(result: GeneratedPatch) -> List[dict[str, Any]]:
 
 def serialize_trajectory_for_runner(steps: Iterable[TaskTransition]) -> List[dict[str, Any]]:
     """
-    Converts Task/GeneratedPatch trajectory steps into Responses API payload items.
+    Converts Task/PatchSet trajectory steps into Responses API payload items.
     """
 
     serialized: List[dict[str, Any]] = []

@@ -4,7 +4,7 @@ from math import inf
 from typing import List
 
 from saplings.dtos.node import Node
-from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
 from saplings.dtos.trajectory_step import TaskTransition
 from saplings.saplings_agents.base_algo import BaseAlgo
 
@@ -16,7 +16,7 @@ class AStarAgent(BaseAlgo):
 
     def run_iter(self, prompt: str, steps: List[TaskTransition] | None = None):
         steps = list(steps or [])
-        root_task = Task.from_goal(prompt)
+        root_task = CreateNodeTask.from_goal(prompt)
         root_node = Node(root_task)
         best_score = -inf  # Negative scores for max behavior
         frontier = []

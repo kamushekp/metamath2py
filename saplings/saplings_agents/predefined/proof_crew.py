@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from agents import Agent
 
-from saplings.dtos.tasks.generated_patch import GeneratedPatch
+from saplings.dtos.tasks.generated_patch import PatchSet
 from saplings.tools.metamath_tools import search_tool
 
 
@@ -88,7 +88,7 @@ def create_proof_crew_agent(
         "You lead a coordinated crew that proves Metamath theorems. Each user message "
         "contains JSON under the key 'task' with theorem/proof state. Analyse the task, "
         "optionally hand off to specialists (search, planning), and respond "
-        "with JSON matching GeneratedPatch. Prefer returning an atomic JSON Patch under "
+        "with JSON matching PatchSet. Prefer returning an atomic JSON Patch under "
         "'patch' that transforms the given task to the next state. Keep proof state consistent "
         "and set terminal=true only when the proof is complete or irrecoverably blocked."
     )
@@ -102,7 +102,7 @@ def create_proof_crew_agent(
         "instructions": orchestrator_instructions,
         "tools": [search_tool],
         "handoffs": [search_specialist, step_planner],
-        "output_type": GeneratedPatch
+        "output_type": PatchSet
     }
 
     return Agent(**kwargs)

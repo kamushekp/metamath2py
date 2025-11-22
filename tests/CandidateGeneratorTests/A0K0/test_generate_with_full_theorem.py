@@ -15,7 +15,7 @@ from metamath2py.classes.A0K0 import A0K0
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.dtos.theorem_state import TheoremState
-from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
 
 
 def _build_theorem_state() -> TheoremState:
@@ -34,7 +34,7 @@ def _build_theorem_state() -> TheoremState:
 def test_generate_with_full_theorem():
     base = A0K0()
     theorem_state = _build_theorem_state()
-    task = Task.from_goal(
+    task = CreateNodeTask.from_goal(
         "Populate proof for theorem A0K0",
         theorem=theorem_state,
     )

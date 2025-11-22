@@ -13,12 +13,12 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
 
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.tasks.task import Task
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
 
 
 def _make_description_task() -> Node:
     description = "Modus ponens combined with a double syllogism inference."
-    task = Task.from_goal(description)
+    task = CreateNodeTask.from_goal(description)
     return Node(task=task)
 
 

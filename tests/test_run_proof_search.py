@@ -5,8 +5,8 @@ from pathlib import Path
 from metamath_agent.agent import run_proof_search
 from metamath_agent.config import AgentConfig
 from paths import PathsEnum
-from saplings.dtos.tasks.task import Task
-from saplings.dtos.tasks.generated_patch import GeneratedPatch
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
+from saplings.dtos.tasks.generated_patch import PatchSet
 from saplings.dtos.trajectory_step import TaskTransition
 from tests.tools import (
     clear_metamath2py_modules,
@@ -50,8 +50,8 @@ def test_run_proof_search_rebuilds_theorem(monkeypatch):
                         proofs_package=proofs_package,
                     )
                     generated_name = gen.name
-                    task = Task.from_goal(goal)
-                    result = GeneratedPatch(
+                    task = CreateNodeTask.from_goal(goal)
+                    result = PatchSet(
                         summary=f"Stub proof found for {goal}",
                         used_theorems=[],
                         terminal=True,

@@ -7,7 +7,7 @@ from saplings.dtos.theorem_state import TheoremState
 
 
 @dataclass
-class Task:
+class CreateNodeTask:
     goal: str
     theorem: TheoremState
     proof: ProofState
