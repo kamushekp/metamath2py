@@ -14,31 +14,20 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
 from metamath2py.classes.A0K0 import A0K0
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.proof import SymbolDecl, TheoremState
+from saplings.dtos.proof import TheoremState
 from saplings.dtos.tasks.task import Task
 
 
 def _build_theorem_state() -> TheoremState:
     base = A0K0()
-    floating = [
-        SymbolDecl(name="ph", sort="wff"),
-        SymbolDecl(name="ps", sort="wff"),
-        SymbolDecl(name="ch", sort="wff"),
-        SymbolDecl(name="th", sort="wff"),
-        SymbolDecl(name="ta", sort="wff"),
-    ]
-    essential = [
-        SymbolDecl(name="essential_1", annotation={"statement": base.essential_1}),
-        SymbolDecl(name="essential_2", annotation={"statement": base.essential_2}),
-        SymbolDecl(name="essential_3", annotation={"statement": base.essential_3}),
-    ]
+    floating = ["ph", "ps", "ch", "th", "ta"]
+    essential = ["essential_1", "essential_2", "essential_3"]
     return TheoremState(
         label="A0K0",
         floating_args=floating,
         essential_args=essential,
         essential_theorems=["VLEL", "SW6P"],
         assertion=base.assertion,
-        metadata={"source": "examples/classes/A0K0.py"},
     )
 
 

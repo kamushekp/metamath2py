@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,23 +10,17 @@ from saplings.dtos.tasks.generated_patch import GeneratedPatch
 from saplings.tools.metamath_tools import search_tool
 
 
-class SymbolDeclPayload(BaseModel):
-    name: str
-    sort: Optional[str] = Field(default=None, description="Metamath sort (e.g., wff, setvar).")
-    annotation: Dict[str, Any] = Field(default_factory=dict)
-
-
 class TheoremPayload(BaseModel):
     label: Optional[str] = Field(default=None, description="Theorem label, if already assigned.")
-    floating_args: List[SymbolDeclPayload] = Field(default_factory=list)
-    essential_args: List[SymbolDeclPayload] = Field(default_factory=list)
+    floating_args: List[str] = Field(default_factory=list)
+    essential_args: List[str] = Field(default_factory=list)
     essential_theorems: List[str] = Field(default_factory=list)
     assertion: Optional[str] = Field(default=None)
 
 
 class ProofStepPayload(BaseModel):
-    reference: str = Field(description="Name of the theorem/axiom used in this step.")
-    substitutions: Dict[str, Any] = Field(default_factory=dict)
+    left: str = Field(description="Left-hand expression of the proof step.")
+    right: str = Field(description="Right-hand expression of the proof step.")
     comment: Optional[str] = Field(default=None)
 
 

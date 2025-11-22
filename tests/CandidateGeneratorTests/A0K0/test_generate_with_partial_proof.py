@@ -15,42 +15,27 @@ for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
 
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.proof import ProofState, ProofStep, SymbolDecl, TheoremState
+from saplings.dtos.proof import ProofState, ProofStep, TheoremState
 from saplings.dtos.tasks.task import Task
 
 
 def _build_theorem_state() -> TheoremState:
     base = A0K0()
-    floating = [
-        SymbolDecl(name="ph", sort="wff"),
-        SymbolDecl(name="ps", sort="wff"),
-        SymbolDecl(name="ch", sort="wff"),
-        SymbolDecl(name="th", sort="wff"),
-        SymbolDecl(name="ta", sort="wff"),
-    ]
-    essential = [
-        SymbolDecl(name="essential_1", annotation={"statement": base.essential_1}),
-        SymbolDecl(name="essential_2", annotation={"statement": base.essential_2}),
-        SymbolDecl(name="essential_3", annotation={"statement": base.essential_3}),
-    ]
+    floating = ["ph", "ps", "ch", "th", "ta"]
+    essential = ["essential_1", "essential_2", "essential_3"]
     return TheoremState(
         label="A0K0",
         floating_args=floating,
         essential_args=essential,
         essential_theorems=["VLEL", "SW6P"],
         assertion=base.assertion,
-        metadata={"source": "examples/classes/A0K0.py"},
     )
 
 
 def _first_step(base: A0K0) -> ProofStep:
     return ProofStep(
-        reference="VLEL",
-        substitutions={
-            "ph": "ph",
-            "ps": "ps",
-            "essential_1": base.essential_1,
-        },
+        left="VLEL",
+        right=base.essential_1,
         comment="Seed helper assertion",
     )
 

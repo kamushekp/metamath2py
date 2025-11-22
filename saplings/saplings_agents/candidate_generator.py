@@ -8,7 +8,6 @@ from saplings.saplings_agents.factories import serialize_trajectory_for_runner
 from saplings.saplings_agents.predefined import create_proof_crew_agent
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.generated_patch import GeneratedPatch
-from saplings.dtos.tasks.patch import apply_patch
 from saplings.dtos.tasks.task import Task
 from saplings.dtos.tasks.task_transition import TaskTransition
 from saplings.dtos.trajectory_step import TrajectoryStep
@@ -76,7 +75,5 @@ class CandidateGenerator:
     def _build_transition(self, node: Node, result: GeneratedPatch) -> Optional[TaskTransition]:
         if not result.patch:
             return None
-        task_dict = node.task.to_dict()
-        patched = apply_patch(task_dict, result.patch)
-        next_task = Task.from_dict(patched)
-        return TaskTransition(task=next_task, result=result)
+        patched_task = result.patch.apply(node.task)
+        return TaskTransition(task=patched_task, result=result)
