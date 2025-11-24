@@ -25,7 +25,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from verification import ProofCheckResult, verify_proof
+try:
+    from .verification import ProofCheckResult, verify_proof
+except ImportError:
+    # Fallback when imported outside package context
+    from verification import ProofCheckResult, verify_proof
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 DEFAULT_CLASSES_DIR = PACKAGE_ROOT / "classes"

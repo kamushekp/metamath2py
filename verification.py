@@ -30,7 +30,11 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import Iterable, List, Optional
 
-from paths import PROJECT_PATH, PathsEnum, proofs_folder_path, classes_folder_path
+try:
+    from .paths import PROJECT_PATH, PathsEnum, proofs_folder_path, classes_folder_path
+except ImportError:
+    # Fallback for execution outside package context
+    from paths import PROJECT_PATH, PathsEnum, proofs_folder_path, classes_folder_path
 
 _DEFAULT_PROJECT_ROOT = os.path.abspath(os.fspath(PROJECT_PATH))
 _DEFAULT_PROOFS_ROOT = os.path.abspath(os.fspath(proofs_folder_path))
