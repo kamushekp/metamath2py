@@ -43,7 +43,7 @@ class TaskPayload(BaseModel):
 TaskPayload.model_rebuild()
 
 
-def _create_search_specialist(search_tool) -> Agent:
+def _create_search_specialist() -> Agent:
     instructions = (
         "You are a theorem search specialist. Given a proof task, identify relevant "
         "theorems or lemmas that could advance the proof. Always return concise "
@@ -71,15 +71,7 @@ def _create_step_planner() -> Agent:
     return Agent(**kwargs)
 
 
-def create_proof_crew_agent(
-    *,
-    instructions: Optional[str] = None,
-) -> Agent:
-    """
-    Creates a multi-agent proof crew agent capable of collaborating on theorem tasks.
-    """
-
-    # Base tools shared with the orchestrator
+def create_proof_crew_agent() -> Agent:
 
     search_specialist = _create_search_specialist()
     step_planner = _create_step_planner()
@@ -93,13 +85,10 @@ def create_proof_crew_agent(
         "and set terminal=true only when the proof is complete or irrecoverably blocked."
     )
 
-    orchestrator_instructions = (
-        base_instructions if instructions is None else f"{base_instructions}\n\n{instructions}"
-    )
 
     kwargs: dict[str, Any] = {
         "name": "Proof Crew Orchestrator",
-        "instructions": orchestrator_instructions,
+        "instructions": base_instructions,
         "tools": [search_tool],
         "handoffs": [search_specialist, step_planner],
         "output_type": PatchSet

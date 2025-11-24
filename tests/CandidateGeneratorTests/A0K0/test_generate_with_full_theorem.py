@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from saplings.dtos.proof_state import EmptyProofState
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SITE_PACKAGES = PROJECT_ROOT / "venv" / "Lib" / "site-packages"
 for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
@@ -34,11 +36,8 @@ def _build_theorem_state() -> TheoremState:
 def test_generate_with_full_theorem():
     base = A0K0()
     theorem_state = _build_theorem_state()
-    task = CreateNodeTask.from_goal(
-        "Populate proof for theorem A0K0",
-        theorem=theorem_state,
-    )
-    node = Node(task=task)
-    generator = CandidateGenerator(b_factor=1, step_max_turns=1)
-    transitions = generator.generate(node, n=1)
+    task = CreateNodeTask(goal="Populate proof for theorem A0K0", theorem=theorem_state, proof=EmptyProofState)
+    node = Node(created_node_task=task)
+    generator = CandidateGenerator()
+    transitions = generator.generate(node)
     print(transitions)
