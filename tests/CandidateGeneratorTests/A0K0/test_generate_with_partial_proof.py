@@ -46,12 +46,12 @@ def test_generate_with_partial_proof():
     theorem_state = _build_theorem_state()
     first_step = _first_step(base)
     current_proof = ProofState(steps=[first_step])
-    task = CreateNodeTask.from_goal(
+    task = CreateNodeTask(
         "Complete the remainder of the proof for A0K0",
         theorem=theorem_state,
         proof=current_proof,
     )
-    node = Node(task=task)
-    generator = CandidateGenerator(b_factor=1, step_max_turns=1)
-    transitions = generator.generate(node, n=1)
+    node = Node(created_node_task=task)
+    generator = CandidateGenerator()
+    transitions = generator.generate(node)
     print(transitions)
