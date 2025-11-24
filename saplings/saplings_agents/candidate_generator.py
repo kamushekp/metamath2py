@@ -21,7 +21,7 @@ class CandidateGenerator:
                 "label": task.theorem.label,
                 "floating_args": task.theorem.floating_args,
                 "essential_args": task.theorem.essential_args,
-                "essential_theorems": task.theorem.essential_theorems,
+                "essential_theorems": task.theorem.required_theorems,
                 "assertion": task.theorem.assertion,
             },
             "proof": {

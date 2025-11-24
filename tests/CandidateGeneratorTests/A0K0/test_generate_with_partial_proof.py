@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from examples.classes.A0K0 import A0K0
+from metamath2py.classes.VLEL import VLEL
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SITE_PACKAGES = PROJECT_ROOT / "venv" / "Lib" / "site-packages"
@@ -28,24 +29,33 @@ def _build_theorem_state() -> TheoremState:
         label="A0K0",
         floating_args=floating,
         essential_args=essential,
-        essential_theorems=["VLEL", "SW6P"],
+        required_theorems=["VLEL", "SW6P"],
         assertion=base.assertion,
     )
 
 
-def _first_step(base: A0K0) -> ProofStep:
-    return ProofStep(
-        left="VLEL",
-        right=base.essential_1,
-        comment="Seed helper assertion",
-    )
+def _partial_proof(base: A0K0) -> ProofState:
+    """First 10 steps of examples/proofs/A0K0.py, stopping before essential_3."""
+    vlel = VLEL()
+    steps = [
+        ProofStep(left="x1", right="wff ps", comment="floating ps"),
+        ProofStep(left="x2", right="wff ph", comment="floating ph"),
+        ProofStep(left="x3", right="wff ch", comment="floating ch"),
+        ProofStep(left="x4", right="wff th", comment="floating th"),
+        ProofStep(left="x5", right="wff ta", comment="floating ta"),
+        ProofStep(left="x6", right="wff ph", comment="duplicate ph for VLEL"),
+        ProofStep(left="x7", right="wff ps", comment="duplicate ps for VLEL"),
+        ProofStep(left="x8", right=base.essential_1, comment="essential_1"),
+        ProofStep(left="x9", right=vlel.assertion, comment="VLEL application"),
+        ProofStep(left="x10", right=base.essential_2, comment="essential_2"),
+    ]
+    return ProofState(steps=steps)
 
 
 def test_generate_with_partial_proof():
     base = A0K0()
     theorem_state = _build_theorem_state()
-    first_step = _first_step(base)
-    current_proof = ProofState(steps=[first_step])
+    current_proof = _partial_proof(base)
     task = CreateNodeTask(
         "Complete the remainder of the proof for A0K0",
         theorem=theorem_state,

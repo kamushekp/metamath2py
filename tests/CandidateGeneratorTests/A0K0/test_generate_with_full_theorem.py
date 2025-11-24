@@ -28,7 +28,7 @@ def _build_theorem_state() -> TheoremState:
         label="A0K0",
         floating_args=floating,
         essential_args=essential,
-        essential_theorems=["VLEL", "SW6P"],
+        required_theorems=["VLEL", "SW6P"],
         assertion=base.assertion,
     )
 
