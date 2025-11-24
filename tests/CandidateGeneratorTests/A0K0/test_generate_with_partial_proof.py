@@ -53,5 +53,5 @@ def test_generate_with_partial_proof():
     )
     node = Node(created_node_task=task)
     generator = CandidateGenerator()
-    transitions = generator.generate(node)
+    transitions = list(generator.generate(node))
     print(transitions)

@@ -80,10 +80,7 @@ class CandidateGenerator:
 
     def generate(self, node: Node, requested_patch_sets: int = 3) -> Iterable[TaskTransition]:
         agent = create_proof_crew_agent()
-        runner_input_obj = {
-            "requested_patch_sets": requested_patch_sets,
-            "trajectory": self._format_trajectory(node),
-        }
+        runner_input_obj = {"requested_patch_sets": requested_patch_sets, "trajectory": self._format_trajectory(node)}
         runner_input = json.dumps(runner_input_obj, indent=2)
 
         transitions: List[TaskTransition] = []
