@@ -78,11 +78,15 @@ def create_proof_crew_agent() -> Agent:
 
     base_instructions = (
         "You lead a coordinated crew that proves Metamath theorems. Each user message "
-        "contains JSON under the key 'task' with theorem/proof state. Analyse the task, "
-        "optionally hand off to specialists (search, planning), and respond "
-        "with JSON matching PatchSet. Prefer returning an atomic JSON Patch under "
-        "'patch' that transforms the given task to the next state. Keep proof state consistent "
-        "and set terminal=true only when the proof is complete or irrecoverably blocked."
+        "contains JSON with two keys: 'requested_patch_sets' (integer) and 'trajectory'. "
+        "'trajectory.initial_task' is the current goal/theorem/proof state, and "
+        "'trajectory.steps' is an ordered list of prior updates where each item has the "
+        "applied 'patch_set' plus the resulting 'task_after'. The task_after of one step "
+        "becomes the task_before of the next, so do not duplicate state. Generate up to "
+        "'requested_patch_sets' PatchSet candidates that advance or finish the proof and "
+        "respond with a PatchSetList object: {\"patch_sets\": [PatchSet, ...]}. Each PatchSet "
+        "should include a concise summary plus theorem_ops/proof_ops consistent with the task schema. "
+        "Use the provided specialists (search, planning) when helpful to ground your updates."
     )
 
 
