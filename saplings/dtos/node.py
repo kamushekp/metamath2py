@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from saplings.dtos.tasks import TaskTransition, PatchSet, CreateNodeTask
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
+from saplings.dtos.tasks.patches.patch_set import PatchSet
+from saplings.dtos.tasks.task_transition import TaskTransition
 
 
 class Node(object):

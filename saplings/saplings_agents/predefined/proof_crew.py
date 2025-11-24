@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from agents import Agent
 
-from saplings.dtos.tasks.generated_patch import PatchSet
+from saplings.dtos.tasks.patches.patch_set import PatchSet, PatchSetList
 from saplings.tools.metamath_tools import search_tool
 
 
@@ -95,7 +95,7 @@ def create_proof_crew_agent() -> Agent:
         "instructions": base_instructions,
         "tools": [search_tool],
         "handoffs": [search_specialist, step_planner],
-        "output_type": PatchSet
+        "output_type": PatchSetList
     }
 
     return Agent(**kwargs)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from agents import Agent
 
-from saplings.dtos.tasks.generated_patch import PatchSet
+from saplings.dtos.tasks.patches.patch_set import PatchSetList
 
 
 def create_evaluation_crew_agent() -> Agent:
@@ -18,6 +18,6 @@ def create_evaluation_crew_agent() -> Agent:
     kwargs: dict[str, object] = {
         "name": "Proof Evaluation Crew",
         "instructions": instructions,
-        "output_type": PatchSet
+        "output_type": PatchSetList
     }
     return Agent(**kwargs)

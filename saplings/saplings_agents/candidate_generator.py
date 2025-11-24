@@ -9,7 +9,7 @@ from saplings.dtos.node import Node
 from saplings.dtos.tasks.create_node_task import CreateNodeTask
 from saplings.dtos.tasks.patches.patch_set import PatchSet, PatchSetList
 from saplings.dtos.tasks.task_transition import TaskTransition
-from saplings.saplings_agents.predefined import create_proof_crew_agent
+from saplings.saplings_agents.predefined.proof_crew import create_proof_crew_agent
 
 
 class CandidateGenerator:
