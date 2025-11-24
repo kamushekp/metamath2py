@@ -3,16 +3,20 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from examples.classes.A0K0 import A0K0
-from metamath2py.classes.VLEL import VLEL
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-SITE_PACKAGES = PROJECT_ROOT / "venv" / "Lib" / "site-packages"
-for runtime_path in (PROJECT_ROOT, SITE_PACKAGES):
+SITE_PACKAGES = [
+    PROJECT_ROOT / "venv" / "Lib" / "site-packages",  # Windows venv layout
+    PROJECT_ROOT / "venv" / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages",
+    PROJECT_ROOT / ".venv" / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages",
+]
+for runtime_path in (PROJECT_ROOT, *SITE_PACKAGES):
     if runtime_path.exists():
         str_path = str(runtime_path)
         if str_path not in sys.path:
             sys.path.append(str_path)
+
+from examples.classes.A0K0 import A0K0
+from metamath2py.classes.VLEL import VLEL
 
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
