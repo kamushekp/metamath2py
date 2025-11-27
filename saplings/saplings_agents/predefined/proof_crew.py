@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
+from agents import Agent
 from pydantic import BaseModel, Field
 
-from agents import Agent
-
-from saplings.dtos.tasks.patches.patch_set import PatchSet, PatchSetList
+from saplings.dtos.tasks.patches.patch_set import PatchSetList
 from saplings.tools.metamath_tools import search_tool
 
 

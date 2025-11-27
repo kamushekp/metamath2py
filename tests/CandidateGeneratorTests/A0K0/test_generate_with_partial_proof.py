@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+
+os.environ['OPENAI_API_KEY']='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'
 import sys
 from pathlib import Path
 
@@ -21,6 +24,8 @@ from metamath2py.classes.VLEL import VLEL
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
 from saplings.dtos.proof_state import ProofState, ProofStep
+from saplings.dtos.tasks.patches.patch_proof_state_op import PatchProofStateOp
+from saplings.dtos.tasks.patches.patch_set import PatchSet
 from saplings.dtos.theorem_state import RequiredTheorem, TheoremState
 from saplings.dtos.tasks.create_node_task import CreateNodeTask
 
@@ -64,13 +69,36 @@ def _partial_proof(base: A0K0) -> ProofState:
 def test_generate_with_partial_proof():
     base = A0K0()
     theorem_state = _build_theorem_state()
-    current_proof = _partial_proof(base)
-    task = CreateNodeTask(
+    steps = _partial_proof(base).steps
+
+    root_task = CreateNodeTask(
         "Complete the remainder of the proof for A0K0",
         theorem=theorem_state,
-        proof=current_proof,
+        proof=ProofState(steps=[]),
     )
-    node = Node(created_node_task=task)
+    root_node = Node(created_node_task=root_task)
+
+    current_node = root_node
+    for idx, step in enumerate(steps, start=1):
+        patch = PatchSet(
+            summary=f"Add proof step {idx}",
+            proof_ops=[
+                PatchProofStateOp(
+                    operation="insert",
+                    left=step.left,
+                    right=step.right,
+                    comment=step.comment,
+                )
+            ],
+        )
+        next_task = patch.apply(current_node.created_node_task)
+        current_node = Node(
+            created_node_task=next_task,
+            parent_node=current_node,
+            created_from_patch_set=patch,
+        )
+
+    node = current_node
     generator = CandidateGenerator()
     transitions = list(generator.generate(node))
     print(transitions)
