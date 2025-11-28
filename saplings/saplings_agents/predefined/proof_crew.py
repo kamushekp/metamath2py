@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from agents import Agent
 from pydantic import BaseModel, Field
@@ -53,12 +53,11 @@ def _create_search_specialist() -> Agent:
         "search_tool to fetch relevant theorems/lemmas or examples that could advance "
         "the proof. Return concise summaries/citations that the planner can consume."
     )
-    kwargs: dict[str, Any] = {
-        "name": "Proof Search Specialist",
-        "instructions": instructions,
-        "tools": [search_tool],
-    }
-    return Agent(**kwargs)
+    return Agent(
+        name="Proof Search Specialist",
+        instructions=instructions,
+        tools=[search_tool],
+    )
 
 
 def _create_step_planner() -> Agent:
@@ -68,11 +67,10 @@ def _create_step_planner() -> Agent:
         "emit free-form text; focus on appending a valid next step. Collaborate via "
         "handoffs when helpful."
     )
-    kwargs: dict[str, Any] = {
-        "name": "Proof Step Planner",
-        "instructions": instructions,
-    }
-    return Agent(**kwargs)
+    return Agent(
+        name="Proof Step Planner",
+        instructions=instructions,
+    )
 
 
 def create_proof_crew_agent() -> Agent:
@@ -102,13 +100,10 @@ def create_proof_crew_agent() -> Agent:
     )
 
 
-    kwargs: dict[str, Any] = {
-        "name": "Proof Crew Orchestrator",
-        "instructions": base_instructions,
-        "tools": [search_tool],
-        "handoffs": [search_specialist, step_planner],
-        "input_type": TaskPayload,
-        "output_type": PatchSetList
-    }
-
-    return Agent(**kwargs)
+    return Agent(
+        name="Proof Crew Orchestrator",
+        instructions=base_instructions,
+        tools=[search_tool],
+        handoffs=[search_specialist, step_planner],
+        output_type=PatchSetList,
+    )

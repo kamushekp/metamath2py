@@ -15,9 +15,8 @@ def create_evaluation_crew_agent() -> Agent:
         "Do not modify the proof; only assess its quality and completeness."
     )
 
-    kwargs: dict[str, object] = {
-        "name": "Proof Evaluation Crew",
-        "instructions": instructions,
-        "output_type": PatchSetList
-    }
-    return Agent(**kwargs)
+    return Agent(
+        name="Proof Evaluation Crew",
+        instructions=instructions,
+        output_type=PatchSetList,
+    )
