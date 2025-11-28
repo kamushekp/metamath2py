@@ -8,13 +8,13 @@ from saplings.dtos.theorem_state import TheoremState
 
 @dataclass
 class PatchTheoremStateOp:
-    field: Literal["label", "floating_args", "essential_args", "essential_theorems", "assertion"]
+    field: Literal["label", "floating_args", "essential_args", "required_theorems", "assertion"]
     operation: Literal["remove", "replace", "insert"]
     content: str
     index: Optional[int] = None
 
     def validate(self, target: TheoremState):
-        is_list_field = self.field in {"floating_args", "essential_args", "essential_theorems"}
+        is_list_field = self.field in {"floating_args", "essential_args", "required_theorems"}
         if self.operation == "insert" and not is_list_field:
             raise ValueError(f"Insert is only valid for list fields, got {self.field}")
         if not is_list_field and self.index is not None:
@@ -35,7 +35,7 @@ class PatchTheoremStateOp:
 
     def apply(self, target: TheoremState):
         self.validate(target)
-        is_list_field = self.field in {"floating_args", "essential_args", "essential_theorems"}
+        is_list_field = self.field in {"floating_args", "essential_args", "required_theorems"}
 
         if is_list_field:
             seq = getattr(target, self.field)

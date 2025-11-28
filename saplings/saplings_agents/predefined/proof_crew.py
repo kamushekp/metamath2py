@@ -9,11 +9,16 @@ from saplings.dtos.tasks.patches.patch_set import PatchSetList
 from saplings.tools.metamath_tools import search_tool
 
 
+class RequiredTheoremPayload(BaseModel):
+    left: str = Field(description="Alias/name referenced in the proof steps.")
+    right: str = Field(description="Actual theorem content or reference string.")
+
+
 class TheoremPayload(BaseModel):
     label: Optional[str] = Field(default=None, description="Theorem label, if already assigned.")
     floating_args: List[str] = Field(default_factory=list)
     essential_args: List[str] = Field(default_factory=list)
-    essential_theorems: List[str] = Field(default_factory=list)
+    required_theorems: List[RequiredTheoremPayload] = Field(default_factory=list)
     assertion: Optional[str] = Field(default=None)
 
 
@@ -44,9 +49,9 @@ TaskPayload.model_rebuild()
 
 def _create_search_specialist() -> Agent:
     instructions = (
-        "You are a theorem search specialist. Given a proof task, identify relevant "
-        "theorems or lemmas that could advance the proof. Always return concise "
-        "summaries and references that another agent can consume."
+        "You are a theorem search specialist. Given a proof task, use the provided "
+        "search_tool to fetch relevant theorems/lemmas or examples that could advance "
+        "the proof. Return concise summaries/citations that the planner can consume."
     )
     kwargs: dict[str, Any] = {
         "name": "Proof Search Specialist",
@@ -58,10 +63,10 @@ def _create_search_specialist() -> Agent:
 
 def _create_step_planner() -> Agent:
     instructions = (
-        "You design the next proof step. Carefully inspect the task payload and "
-        "decide how to extend the proof steps. Collaborate with specialists via "
-        "handoffs when helpful. Produce a high-quality summary that other agents "
-        "can follow."
+        "You design the next proof step. Inspect the current proof payload and propose "
+        "the single next step as one or more alternative proof_ops (insert). Do not "
+        "emit free-form text; focus on appending a valid next step. Collaborate via "
+        "handoffs when helpful."
     )
     kwargs: dict[str, Any] = {
         "name": "Proof Step Planner",
@@ -76,16 +81,24 @@ def create_proof_crew_agent() -> Agent:
     step_planner = _create_step_planner()
 
     base_instructions = (
-        "You lead a coordinated crew that proves Metamath theorems. Each user message "
-        "contains JSON with two keys: 'requested_patch_sets' (integer) and 'trajectory'. "
-        "'trajectory.initial_task' is the current goal/theorem/proof state, and "
-        "'trajectory.steps' is an ordered list of prior updates where each item has the "
-        "applied 'patch_set' plus the resulting 'task_after'. The task_after of one step "
-        "becomes the task_before of the next, so do not duplicate state. Generate up to "
-        "'requested_patch_sets' PatchSet candidates that advance or finish the proof and "
-        "respond with a PatchSetList object: {\"patch_sets\": [PatchSet, ...]}. Each PatchSet "
-        "should include a concise summary plus theorem_ops/proof_ops consistent with the task schema. "
-        "Use the provided specialists (search, planning) when helpful to ground your updates."
+        "You lead a coordinated crew that proves Metamath theorems. The user message is "
+        "JSON with top-level keys 'requested_patch_sets' (integer) and 'trajectory'. "
+        "'trajectory.initial_task' contains 'goal', 'theorem', and 'proof'. "
+        "'theorem' has fields label, floating_args, essential_args, required_theorems "
+        "(list of {left, right}), and assertion. 'proof.steps' is an ordered list of "
+        "{left, right, comment}. 'trajectory.steps' is an ordered history where each "
+        "item has an applied 'patch_set' and resulting 'task_after'. The current state "
+        "is already reflected in the last task_after; do not duplicate previous updates. "
+        "Generate up to 'requested_patch_sets' alternative PatchSet candidates that each "
+        "propose only the next proof step (e.g., if 10 steps exist, return three variants "
+        "for step 11, not steps 11–13). Respond strictly with a PatchSetList "
+        "{\"patch_sets\": [PatchSet, ...]}. Each PatchSet needs a concise summary and "
+        "proof_ops/theorem_ops matching the schema. Avoid returning identical PatchSets. "
+        "Default to proof_ops 'insert' that append the next step; do not remove/replace "
+        "existing steps unless absolutely necessary and well-justified. Use search_tool "
+        "when you need supporting lemmas/examples and cite findings briefly in the "
+        "summary. Aim to reach theorem.assertion without altering provided floating/essential "
+        "arguments or required_theorems."
     )
 
 
@@ -94,6 +107,7 @@ def create_proof_crew_agent() -> Agent:
         "instructions": base_instructions,
         "tools": [search_tool],
         "handoffs": [search_specialist, step_planner],
+        "input_type": TaskPayload,
         "output_type": PatchSetList
     }
 
