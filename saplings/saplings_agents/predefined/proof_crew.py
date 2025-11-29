@@ -44,12 +44,13 @@ def create_proof_crew_agent() -> Agent:
 
     search_specialist = _create_search_specialist()
     step_planner = _create_step_planner()
+    validator = create_validation_agent()
 
     base_instructions = PROOF_ORCHESTRATOR_INSTRUCTIONS
 
     return Agent(
         name="Proof Crew Orchestrator",
         instructions=base_instructions,
-        handoffs=[search_specialist, step_planner],
+        handoffs=[search_specialist, step_planner, validator],
         output_type=PatchSetList,
     )
