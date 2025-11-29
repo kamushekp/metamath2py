@@ -5,17 +5,15 @@ from typing import Any, Dict, List, Annotated
 from agents import function_tool
 
 from database.opensearch_wrapper import TheoremSearchClient
-from verification import verify_proof
+from saplings.dtos.proof_state import ProofState
+from saplings.dtos.theorem_state import TheoremState
+from saplings.tools.theorem_recovery import TheoremRecoveryRunner
+from verification import ProofCheckResult
 
 theorem_search_client = TheoremSearchClient()
 
 @function_tool()
-async def search_tool(
-    query: Annotated[str, "Natural-language query or target expression."],
-    top_k: Annotated[int, "Max number of results to return."] = 5,
-    context_window: Annotated[int, "Snippet size in lines."] = 40,
-    highlight: Annotated[bool, "Whether to use OpenSearch highlighting."] = True,
-) -> List[Dict[str, Any]]:
+async def search_tool(query: str, top_k: int = 5, context_window: int = 40, highlight: bool = True) -> List[Dict[str, Any]]:
     results = theorem_search_client.search(
         query,
         top_k=top_k,
@@ -36,20 +34,12 @@ async def search_tool(
     ]
 
 
-def _derive_module_name(path: str, default_pkg: str) -> str:
-    norm = path.replace("\\", "/")
-    if "/metamath2py/proofs/" in norm:
-        stem = norm.split("/metamath2py/proofs/")[-1].rsplit(".", 1)[0]
-        return stem.replace("/", ".")
-    return norm.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-
 @function_tool()
-async def verify_tool(path_to_pyfile: Annotated[str, "Filesystem path to the proof .py file."]) -> Dict[str, Any]:
-    module_name = _derive_module_name(path_to_pyfile, "metamath2py.proofs")
-    result = verify_proof(module_name)
-    return {
-        "statement_name": result.statement_name,
-        "success": result.success,
-        "stage": result.stage,
-        "error_message": result.error_message,
-    }
+async def verify_tool(theorem_state: TheoremState, proof_state: ProofState) -> ProofCheckResult:
+    """
+    Verify a theorem/proof by materializing temporary modules via TheoremRecoveryRunner.
+    """
+
+    runner = TheoremRecoveryRunner(theorem_state, proof_state)
+    result = runner.verify()
+    return result
