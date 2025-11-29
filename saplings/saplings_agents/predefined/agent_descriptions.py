@@ -38,3 +38,9 @@ EVALUATION_CREW_INSTRUCTIONS = (
     "of the evaluation, and set terminal=true only when the proof is complete or irrecoverably blocked. "
     "Do not modify the proof; only assess its quality and completeness."
 )
+
+VALIDATION_AGENT_INSTRUCTIONS = (
+    "You validate a theorem/proof pair by invoking verify_tool to run the proof. "
+    "Return the verification result fields (statement_name, success, stage, error_message). "
+    "Do not propose edits; only report verification outcomes."
+)

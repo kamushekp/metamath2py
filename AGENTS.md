@@ -23,6 +23,7 @@
 - Keep imports explicit; avoid `from x import *` to preserve deterministic verification.
 - If available, run `ruff check .` and address reported issues.
 - Prefer method/function signatures, call sites, and object initializations on a single line; avoid wrapping arguments and avoid `*args`/`**kwargs` unless absolutely unavoidable.
+- Do not edit or populate `__init__.py` files unless explicitly requested.
 
 ## Testing Guidelines
 - Primary check is `verify_metamath2py_files.py` on generated modules; ensure `proof()` executes without exceptions.

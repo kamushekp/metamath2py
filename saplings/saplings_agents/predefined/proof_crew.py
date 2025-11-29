@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 from agents import Agent
-from pydantic import BaseModel, Field
 
 from saplings.dtos.tasks.patches.patch_set import PatchSetList
 from saplings.saplings_agents.predefined.agent_descriptions import (
     PROOF_ORCHESTRATOR_INSTRUCTIONS,
     PROOF_SEARCH_INSTRUCTIONS,
     PROOF_STEP_PLANNER_INSTRUCTIONS,
+    VALIDATION_AGENT_INSTRUCTIONS,
 )
 from saplings.tools.metamath_tools import search_tool
+from saplings.tools.metamath_tools import verify_tool
 
 
 def _create_search_specialist() -> Agent:
@@ -28,6 +27,16 @@ def _create_step_planner() -> Agent:
     return Agent(
         name="Proof Step Planner",
         instructions=instructions,
+    )
+
+
+def create_validation_agent() -> Agent:
+    """Builds an agent that validates theorem/proof pairs via verify_tool."""
+
+    return Agent(
+        name="Proof Validation Agent",
+        instructions=VALIDATION_AGENT_INSTRUCTIONS,
+        tools=[verify_tool],
     )
 
 
