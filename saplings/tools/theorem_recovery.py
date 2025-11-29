@@ -28,6 +28,7 @@ class TheoremRecoveryRunner:
 
     def _render_class_source(self, label: str, essential_lookup: dict[str, str]) -> str:
         lines: list[str] = []
+        lines.append("")
         lines.append("from typing import TypedDict")
         lines.append("from metamath2py.classes.apply_substitution_for_generated_files import apply_substitution")
         lines.append("")
@@ -38,48 +39,55 @@ class TheoremRecoveryRunner:
             lines.append(f"    {floating}: str")
         lines.append("")
         lines.append("")
+        lines.append("")
 
         lines.append(f"class {label}_EssentialArgs(TypedDict):")
         for essential in self.theorem_state.essential_args:
             lines.append(f"    {essential}: str")
         lines.append("")
         lines.append("")
+        lines.append("")
 
         lines.append(f"class {label}:")
-        lines.append(f"    def __init__(self):")
+        lines.append(f'    """"""')
+        lines.append("    def __init__(self):")
         for essential in self.theorem_state.essential_args:
             value = essential_lookup.get(essential, "")
-            lines.append(f"        self.{essential} = {repr(value)}")
+            lines.append(f'        self.{essential} = r"""{value}"""')
         lines.append("")
-        lines.append(f"        self.assertion = {repr(self.theorem_state.assertion)}")
-        lines.append("")
+        lines.append(f'        self.assertion = r"""{self.theorem_state.assertion}"""')
+        lines.append("        ")
         lines.append(f"    def call(self, floatings: {label}_FloatingArgs, essentials: {label}_EssentialArgs):")
         for essential in self.theorem_state.essential_args:
             substituted_var = f"{essential}_substituted"
             lines.append(f"        {substituted_var} = apply_substitution(self.{essential}, floatings)")
-            lines.append(f"        if {repr(essential)} not in essentials:")
-            lines.append(f"            raise Exception({repr(essential + ' must be in essentials')})")
-            lines.append(f"        if essentials[{repr(essential)}] != {substituted_var}:")
+            lines.append(f'        if "{essential}" not in essentials:')
+            lines.append(f'            raise Exception("{essential} must be in essentials")')
+            lines.append(f'        if essentials["{essential}"] != {substituted_var}:')
             lines.append(
-                f"            raise Exception(f\"{essential} must be equal {{{substituted_var}}} but was {{essentials[{repr(essential)}]}}\")"
+                f'            raise Exception(f\'essentials["{essential}"] must be equal {{{substituted_var}}} but was {{essentials["{essential}"]}}\')'
             )
         lines.append(f"        assertion_substituted = apply_substitution(self.assertion, floatings)")
         lines.append(f"        return assertion_substituted")
+        lines.append("")
         lines.append("")
 
         return "\n".join(lines)
 
     def _render_proof_source(self, label: str) -> str:
         lines: list[str] = []
+        import_candidates = self._collect_imports(label)
+
         lines.append(f"from metamath2py.classes.{label} import {label}")
-        lines.append("")
+        for dep in import_candidates:
+            lines.append(f"from metamath2py.classes.{dep} import {dep}")
         lines.append("")
         lines.append(f"class {label}_proof({label}):")
         lines.append("    def proof(self):")
 
         for step in self.proof_state.steps:
             comment = f"  # {step.comment}" if step.comment else ""
-            lines.append(f"        {step.left} = {repr(step.right)}{comment}")
+            lines.append(f"        {step.left} = {step.right}{comment}")
 
         if self.proof_state.steps:
             final_var = self.proof_state.steps[-1].left
@@ -93,6 +101,30 @@ class TheoremRecoveryRunner:
         lines.append("")
 
         return "\n".join(lines)
+
+    def _collect_imports(self, label: str) -> list[str]:
+        """Collect class names referenced in proof steps to import."""
+        imports: list[str] = []
+        seen: set[str] = set()
+        for step in self.proof_state.steps:
+            tokens = (
+                step.right.replace("(", " ")
+                .replace(")", " ")
+                .replace("{", " ")
+                .replace("}", " ")
+                .replace(",", " ")
+            ).split()
+            for token in tokens:
+                if (
+                    token
+                    and token[0].isupper()
+                    and token.isidentifier()
+                    and token != label
+                    and token not in seen
+                ):
+                    seen.add(token)
+                    imports.append(token)
+        return imports
 
     def _write_sources(self, class_source: str, proof_source: str) -> Tuple[Path, Path]:
         classes_root = Path(classes_folder_path)
