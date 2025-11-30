@@ -81,7 +81,8 @@ def test_generate_with_partial_proof():
     current_node = root_node
     for idx, step in enumerate(steps, start=1):
         patch = PatchSet(
-            summary=f"Add proof step {idx}",
+            change_description=f"Add proof step {idx}: {step.comment}",
+            next_step_ideas="Keep extending the A0K0 proof by appending the next valid inference.",
             proof_ops=[
                 PatchProofStateOp(
                     operation="insert",

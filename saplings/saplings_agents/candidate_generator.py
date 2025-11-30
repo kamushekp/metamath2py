@@ -41,7 +41,8 @@ class CandidateGenerator:
             return None
 
         return {
-            "summary": patch_set.summary,
+            "change_description": patch_set.change_description,
+            "next_step_ideas": patch_set.next_step_ideas,
             "theorem_ops": [
                 {
                     "field": op.field,
