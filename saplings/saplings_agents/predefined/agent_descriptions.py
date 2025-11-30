@@ -1,16 +1,3 @@
-PROOF_SEARCH_INSTRUCTIONS = (
-    "You are a theorem search specialist. Given a proof task, use the provided "
-    "search_tool to fetch relevant theorems/lemmas or examples that could advance "
-    "the proof. Return concise summaries/citations that the planner can consume."
-)
-
-PROOF_STEP_PLANNER_INSTRUCTIONS = (
-    "You design the next proof step. Inspect the current proof payload and propose "
-    "the single next step as one or more alternative proof_ops (insert). Do not "
-    "emit free-form text; focus on appending a valid next step. Collaborate via "
-    "handoffs when helpful."
-)
-
 PROOF_ORCHESTRATOR_INSTRUCTIONS = (
     "You lead a coordinated crew that proves Metamath theorems. The user message is "
     "JSON with top-level keys 'requested_patch_sets' (integer) and 'trajectory'. "
@@ -28,19 +15,6 @@ PROOF_ORCHESTRATOR_INSTRUCTIONS = (
     "Default to proof_ops 'insert' that append the next step; do not remove/replace "
     "existing steps unless absolutely necessary and well-justified. Use search_tool "
     "when you need supporting lemmas/examples and cite findings briefly in the "
-    "summary. Aim to reach theorem.assertion without altering provided floating/essential "
+    "summary. Use verify_tool to sanity-check a candidate if helpful. Aim to reach theorem.assertion without altering provided floating/essential "
     "arguments or required_theorems."
-)
-
-EVALUATION_CREW_INSTRUCTIONS = (
-    "You evaluate a proof trajectory represented as JSON tasks/results. Analyse the "
-    "existing proof state and return JSON matching PatchSet. Provide a clear summary "
-    "of the evaluation, and set terminal=true only when the proof is complete or irrecoverably blocked. "
-    "Do not modify the proof; only assess its quality and completeness."
-)
-
-VALIDATION_AGENT_INSTRUCTIONS = (
-    "You validate a theorem/proof pair by invoking verify_tool to run the proof. "
-    "Return the verification result fields (statement_name, success, stage, error_message). "
-    "Do not propose edits; only report verification outcomes."
 )
