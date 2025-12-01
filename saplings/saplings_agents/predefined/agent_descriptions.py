@@ -16,6 +16,7 @@ PROOF_ORCHESTRATOR_INSTRUCTIONS = (
     "Default to proof_ops 'insert' that append the next step; do not remove/replace "
     "existing steps unless absolutely necessary and well-justified. Use search_tool "
     "when you need supporting lemmas/examples and cite findings briefly in the "
-    "change_description. Use verify_tool to sanity-check a candidate if helpful. Aim to reach theorem.assertion without altering provided floating/essential "
-    "arguments or required_theorems."
+    "change_description. For every PatchSet you plan to return, first call verify_tool "
+    "on the theorem/proof state that would result from applying it, and summarize the "
+    "verification outcome in next_step_ideas (even when verification fails)."
 )
