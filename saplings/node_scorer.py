@@ -91,16 +91,21 @@ class NodeScorer:
         theorem = node.created_node_task.theorem
         proof = node.created_node_task.proof
 
-        total_required = len(theorem.required_theorem_premises)
-        if total_required == 0:
-            base_ratio = 0.0
-        else:
-            right_values = {req.right for req in theorem.required_theorem_premises}
-            used = sum(1 for step in proof.steps if step.right in right_values)
-            base_ratio = used / total_required
+        required = theorem.required_theorem_premises
+        if not required:
+            return 0.0
 
-        depth = len(node.traverse_to_root()) - 1
-        max_depth_for_bonus = 10
-        depth_factor = min(depth, max_depth_for_bonus) / max_depth_for_bonus
+        used_hypotheses: set[str] = set()
+        for hypothesis in required:
+            for step in proof.steps:
+                step_right = step.right
+                if (
+                    step_right == hypothesis.right
+                    or f"self.{hypothesis.left}" in step_right
+                    or f'"{hypothesis.left}"' in step_right
+                    or f"'{hypothesis.left}'" in step_right
+                ):
+                    used_hypotheses.add(hypothesis.left)
+                    break
 
-        return 0.7 * base_ratio + 0.3 * depth_factor
+        return len(used_hypotheses) / len(required)
