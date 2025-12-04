@@ -32,13 +32,13 @@ def _partial_proof_missing_last() -> ProofState:
     base = A0K0()
     vlel = VLEL()
     steps = [
-        ProofStep(left="x1", right="wff ps", comment="floating ps"),
-        ProofStep(left="x2", right="wff ph", comment="floating ph"),
-        ProofStep(left="x3", right="wff ch", comment="floating ch"),
-        ProofStep(left="x4", right="wff th", comment="floating th"),
-        ProofStep(left="x5", right="wff ta", comment="floating ta"),
-        ProofStep(left="x6", right="wff ph", comment="duplicate ph for VLEL"),
-        ProofStep(left="x7", right="wff ps", comment="duplicate ps for VLEL"),
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
         ProofStep(left="x8", right=base.essential_1, comment="essential_1"),
         ProofStep(left="x9", right=vlel.assertion, comment="VLEL application"),
         ProofStep(left="x10", right=base.essential_2, comment="essential_2"),
@@ -46,18 +46,15 @@ def _partial_proof_missing_last() -> ProofState:
     return ProofState(steps=steps)
 
 
-def _full_proof_state() -> ProofState:
-    base = A0K0()
-    vlel = VLEL()
-
+def _intermediate_proof_state() -> ProofState:
     steps = [
-        ProofStep(left="x1", right="wff ps", comment=None),
-        ProofStep(left="x2", right="wff ph", comment=None),
-        ProofStep(left="x3", right="wff ch", comment=None),
-        ProofStep(left="x4", right="wff th", comment=None),
-        ProofStep(left="x5", right="wff ta", comment=None),
-        ProofStep(left="x6", right="wff ph", comment=None),
-        ProofStep(left="x7", right="wff ps", comment=None),
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
         ProofStep(left="x8", right="self.essential_1", comment=None),
         ProofStep(
             left="x9",
@@ -70,6 +67,29 @@ def _full_proof_state() -> ProofState:
     return ProofState(steps=steps)
 
 
+def _full_proof_state() -> ProofState:
+
+    steps = [
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
+        ProofStep(left="x8", right="self.essential_1", comment=None),
+        ProofStep(
+            left="x9",
+            right='VLEL().call({"ph": x6, "ps": x7}, {"essential_1": x8})',
+            comment=None,
+        ),
+        ProofStep(left="x10", right="self.essential_2", comment=None),
+        ProofStep(left="x11", right="self.essential_3", comment=None),
+        ProofStep(left="x12", right='''SW6P().call({"ph": x1, "ps": x2, "ch": x3, "th": x4, "ta": x5}, {"essential_1": x9, "essential_2": x10, "essential_3": x11})''', comment=None),
+    ]
+    return ProofState(steps=steps)
+
+
 def test_node_scorer_assigns_higher_score_to_more_complete_proof():
     theorem_state = _build_theorem_state()
 
@@ -78,6 +98,11 @@ def test_node_scorer_assigns_higher_score_to_more_complete_proof():
         theorem=theorem_state,
         proof=_partial_proof_missing_last(),
     )
+    intermediate_task = CreateNodeTask(
+        goal="Score intermediate proof",
+        theorem=theorem_state,
+        proof=_intermediate_proof_state(),
+    )
     full_task = CreateNodeTask(
         goal="Score full proof",
         theorem=theorem_state,
@@ -85,11 +110,15 @@ def test_node_scorer_assigns_higher_score_to_more_complete_proof():
     )
 
     root_node = Node(created_node_task=partial_task)
-    full_node = Node(created_node_task=full_task, parent_node=root_node)
+    intermediate_node = Node(created_node_task=intermediate_task, parent_node=root_node)
+    full_node = Node(created_node_task=full_task, parent_node=intermediate_node)
 
     scorer = NodeScorer()
     partial_score = scorer.score(root_node)
+    intermediate_score = scorer.score(intermediate_node)
     full_score = scorer.score(full_node)
 
-    assert full_score.score > partial_score.score
+    assert intermediate_score.score > partial_score.score
+
+
 
