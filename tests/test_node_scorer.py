@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import isclose
+
 from examples.classes.A0K0 import A0K0
 from metamath2py.classes.VLEL import VLEL
 
@@ -119,6 +121,8 @@ def test_node_scorer_assigns_higher_score_to_more_complete_proof():
     full_score = scorer.score(full_node)
 
     assert intermediate_score.score > partial_score.score
+    assert full_score.score > intermediate_score.score
+    assert isclose(full_score.verify_progress, 1.0)
 
 
 
