@@ -23,7 +23,7 @@ def _build_theorem_state() -> TheoremState:
         label="A0K0_TEMP_SCORE",
         floating_args=floating,
         essential_args=essential,
-        required_theorem_premise_premises=required,
+        required_theorem_premises=required,
         assertion=base.assertion,
     )
 

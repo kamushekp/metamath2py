@@ -14,7 +14,7 @@ def _build_a0k0_states(label: str = "A0K0_TEMP") -> tuple[TheoremState, ProofSta
         label=label,
         floating_args=["ph", "ps", "ch", "th", "ta"],
         essential_args=["essential_1", "essential_2", "essential_3"],
-        required_theorem_premise_premises=[
+        required_theorem_premises=[
             RequiredTheoremPremises(left="essential_1", right="|- ph"),
             RequiredTheoremPremises(left="essential_2", right="|- ( ps -> ( ch -> th ) )"),
             RequiredTheoremPremises(left="essential_3", right="|- ( ph -> ( th -> ta ) )"),

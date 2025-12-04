@@ -21,7 +21,7 @@ class CandidateGenerator:
                 "label": task.theorem.label,
                 "floating_args": task.theorem.floating_args,
                 "essential_args": task.theorem.essential_args,
-                "required_theorem_premise_premises":[{'left': t.left, 'right': t.right} for t in task.theorem.required_theorem_premise_premises],
+                "required_theorem_premises":[{'left': t.left, 'right': t.right} for t in task.theorem.required_theorem_premises],
                 "assertion": task.theorem.assertion,
             },
             "proof": {

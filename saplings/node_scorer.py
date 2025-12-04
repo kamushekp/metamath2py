@@ -91,11 +91,11 @@ class NodeScorer:
         theorem = node.created_node_task.theorem
         proof = node.created_node_task.proof
 
-        total_required = len(theorem.required_theorem_premise_premises)
+        total_required = len(theorem.required_theorem_premises)
         if total_required == 0:
             base_ratio = 0.0
         else:
-            right_values = {req.right for req in theorem.required_theorem_premise_premises}
+            right_values = {req.right for req in theorem.required_theorem_premises}
             used = sum(1 for step in proof.steps if step.right in right_values)
             base_ratio = used / total_required
 

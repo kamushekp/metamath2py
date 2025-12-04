@@ -20,7 +20,7 @@ class TheoremRecoveryRunner:
         """Render Python source for the theorem class and its proof module."""
 
         label = self.theorem_state.label
-        essential_lookup = {req.left: req.right for req in self.theorem_state.required_theorem_premise_premises}
+        essential_lookup = {req.left: req.right for req in self.theorem_state.required_theorem_premises}
 
         class_source = self._render_class_source(label, essential_lookup)
         proof_source = self._render_proof_source(label)
