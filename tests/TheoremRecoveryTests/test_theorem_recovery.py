@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from saplings.dtos.proof_state import ProofState, ProofStep
-from saplings.dtos.theorem_state import RequiredTheorem, TheoremState
+from saplings.dtos.theorem_state import RequiredTheoremPremises, TheoremState
 from saplings.tools.theorem_recovery import TheoremRecoveryRunner
 
 
@@ -14,10 +14,10 @@ def _build_a0k0_states(label: str = "A0K0_TEMP") -> tuple[TheoremState, ProofSta
         label=label,
         floating_args=["ph", "ps", "ch", "th", "ta"],
         essential_args=["essential_1", "essential_2", "essential_3"],
-        required_theorems=[
-            RequiredTheorem(left="essential_1", right="|- ph"),
-            RequiredTheorem(left="essential_2", right="|- ( ps -> ( ch -> th ) )"),
-            RequiredTheorem(left="essential_3", right="|- ( ph -> ( th -> ta ) )"),
+        required_theorem_premise_premises=[
+            RequiredTheoremPremises(left="essential_1", right="|- ph"),
+            RequiredTheoremPremises(left="essential_2", right="|- ( ps -> ( ch -> th ) )"),
+            RequiredTheoremPremises(left="essential_3", right="|- ( ph -> ( th -> ta ) )"),
         ],
         assertion="|- ( ps -> ( ch -> ta ) )",
     )

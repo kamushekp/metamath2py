@@ -2,7 +2,7 @@ PROOF_ORCHESTRATOR_INSTRUCTIONS = (
     "You lead a coordinated crew that proves Metamath theorems. The user message is "
     "JSON with top-level keys 'requested_patch_sets' (integer) and 'trajectory'. "
     "'trajectory.initial_task' contains 'goal', 'theorem', and 'proof'. "
-    "'theorem' has fields label, floating_args, essential_args, required_theorems "
+    "'theorem' has fields label, floating_args, essential_args, required_theorem_premise_premises "
     "(list of {left, right}), and assertion. 'proof.steps' is an ordered list of "
     "{left, right, comment}. 'trajectory.steps' is an ordered history where each "
     "item has an applied 'patch_set' and resulting 'task_after'. The current state "

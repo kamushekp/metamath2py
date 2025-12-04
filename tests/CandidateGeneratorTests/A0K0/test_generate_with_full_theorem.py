@@ -20,7 +20,7 @@ from saplings.dtos.proof_state import EmptyProofState
 from metamath2py.classes.A0K0 import A0K0
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.dtos.theorem_state import RequiredTheorem, TheoremState
+from saplings.dtos.theorem_state import RequiredTheoremPremises, TheoremState
 from saplings.dtos.tasks.create_node_task import CreateNodeTask
 
 
@@ -29,15 +29,15 @@ def _build_theorem_state() -> TheoremState:
     floating = ["ph", "ps", "ch", "th", "ta"]
     essential = ["essential_1", "essential_2", "essential_3"]
     required = [
-        RequiredTheorem(left="essential_1", right=base.essential_1),
-        RequiredTheorem(left="essential_2", right=base.essential_2),
-        RequiredTheorem(left="essential_3", right=base.essential_3),
+        RequiredTheoremPremises(left="essential_1", right=base.essential_1),
+        RequiredTheoremPremises(left="essential_2", right=base.essential_2),
+        RequiredTheoremPremises(left="essential_3", right=base.essential_3),
     ]
     return TheoremState(
         label="A0K0",
         floating_args=floating,
         essential_args=essential,
-        required_theorems=required,
+        required_theorem_premise_premises=required,
         assertion=base.assertion,
     )
 
