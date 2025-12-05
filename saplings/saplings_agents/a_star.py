@@ -6,7 +6,7 @@ from saplings.dtos.node import Node
 from saplings.saplings_agents.base_algo import BaseAlgo
 
 
-class AStarAgent(BaseAlgo):
+class AStar(BaseAlgo):
 
     def _init_root_node(self, root: Node) -> Node:
         if root.node_score is None:
