@@ -1,48 +1,48 @@
 # Standard library
 import heapq
-from math import inf
-from typing import List
+from typing import Iterable
 
 from saplings.dtos.node import Node
-from saplings.dtos.tasks.create_node_task import CreateNodeTask
-from saplings.dtos.trajectory_step import TaskTransition
 from saplings.saplings_agents.base_algo import BaseAlgo
 
 
 class AStarAgent(BaseAlgo):
 
-    def should_terminate(self, node: Node) -> bool:
-        return self.is_solution_node(node)
+    def _init_root_node(self, root: Node) -> Node:
+        if root.node_score is None:
+            self._score_node(root)
+        return root
 
-    def run_iter(self, prompt: str, steps: List[TaskTransition] | None = None):
-        steps = list(steps or [])
-        root_task = CreateNodeTask.from_goal(prompt)
-        root_node = Node(root_task)
-        best_score = -inf  # Negative scores for max behavior
-        frontier = []
-        heapq.heappush(frontier, (0, root_node))
+    def run_iter(
+        self,
+        root: Node,
+    ) -> Iterable[object]:
+        root_node = self._init_root_node(root)
+
+        frontier: list[tuple[float, Node]] = []
+        heapq.heappush(frontier, (-root_node.node_score.score, root_node))
+
+        best_node = root_node
 
         while frontier:
-            neg_score, curr_node = heapq.heappop(frontier)
-            curr_score = -neg_score  # Convert back to positive score
-            if curr_score > best_score:
-                best_score = curr_score
-
-            if self.should_terminate(curr_node):
+            _, curr_node = heapq.heappop(frontier)
+            if self.is_solution_node(curr_node):
+                best_node = curr_node
                 break
 
-            for item in self.expand(curr_node, steps):
-                yield item
+            for child in self.expand(curr_node):
+                yield child
+
             for child in curr_node.children:
-                heapq.heappush(frontier, (-child.score, child))
-        else:
-            pass
+                priority = -child.node_score.score
+                heapq.heappush(frontier, (priority, child))
 
-        best_node = self.get_best_node(root_node)
-        trajectory, score, is_solution = (
-            best_node.get_trajectory(),
-            best_node.score,
-            self.is_solution_node(best_node),
-        )
+        if not self.is_solution_node(best_node):
+            best_node = self.get_best_node(root_node)
 
-        yield (trajectory, score, is_solution)
+        trajectory = best_node.get_trajectory()
+        score = best_node.node_score.score
+        node_score = best_node.node_score
+        is_solution = self.is_solution_node(best_node)
+
+        yield (trajectory, score, is_solution, node_score)

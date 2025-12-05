@@ -1,103 +1,106 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List
 
-from saplings.dtos.trajectory_step import TaskTransition
-from saplings.saplings_agents.candidate_generator import CandidateGenerator
 from saplings.dtos.node import Node
-from saplings.prompts import AGENT_PROMPT
-from saplings.tools.metamath_tools import theorem_search_client
+from saplings.node_scorer import NodeScorer
+from saplings.saplings_agents.candidate_generator import CandidateGenerator
 
 
 class BaseAlgo(object):
-    def __init__(self):
-        self.model_name = 'gpt-5-mini'
-        self.prompt = AGENT_PROMPT
-        self.b_factor = 3
-        self.max_depth = 5
-        self.threshold = 1.0
-        self.max_tool_call_tokens = 2048
-        self.step_max_turns = 2
-        self._theorem_search_client = theorem_search_client
-        self._candidate_generator = CandidateGenerator(
-            b_factor=self.b_factor,
-            step_max_turns=self.step_max_turns,
-        )
+    def __init__(
+        self,
+        *,
+        requested_patch_sets: int = 3,
+        max_depth: int = 5,
+    ):
+        self.requested_patch_sets = requested_patch_sets
+        self.max_depth = max_depth
+        self.candidate_generator = CandidateGenerator()
+        self.node_scorer = NodeScorer()
+
+    def _node_depth(self, node: Node) -> int:
+        return len(node.traverse_to_root()) - 1
 
     def is_terminal_node(self, node: Node) -> bool:
         if self.is_solution_node(node):
             return True
-        if node.result and node.result.terminal:
-            return True
-        if node.depth >= self.max_depth:
+        if self._node_depth(node) >= self.max_depth:
             return True
         return False
 
     def is_solution_node(self, node: Node) -> bool:
-        return (
-            node.result is not None
-            and node.result.terminal
-            and node.score >= self.threshold
-        )
+        node_score = node.node_score
+        if node_score is None:
+            raise ValueError("Node must be scored before solution check")
+        if node_score.verify_progress >= 1.0 or node_score.stage == "success":
+            return True
+        return False
 
     def get_best_node(self, root: Node) -> Node:
-        best_score, best_output_score = 0.0, 0.0
-        best_node, best_output_node = root, None
-        for node in root.bfs():
-            if not node.is_leaf:
+        if root.node_score is None:
+            self._score_node(root)
+
+        best_leaf = root
+        best_leaf_score = root.node_score.score
+        best_verified: Node | None = None
+
+        stack = [root]
+        while stack:
+            current = stack.pop()
+            if current.children:
+                stack.extend(current.children)
                 continue
 
-            if node.result is not None:
-                if node.score >= best_output_score:
-                    best_output_score, best_output_node = node.score, node
+            if current.node_score is None:
+                self._score_node(current)
+            node_score = current.node_score
+            score = node_score.score
 
-            if node.score >= best_score:
-                best_score, best_node = node.score, node
+            if node_score and node_score.verify_progress >= 1.0:
+                if best_verified is None or score > best_verified.node_score.score:
+                    best_verified = current
 
-        if best_output_node:
-            return best_output_node
+            if score > best_leaf_score:
+                best_leaf_score = score
+                best_leaf = current
 
-        return best_node
+        return best_verified or best_leaf
+
+    def _score_node(self, node: Node) -> None:
+        node.node_score = self.node_scorer.score(node)
 
     def expand(
         self,
         node: Node,
-        prefix_steps: Optional[List[TaskTransition]] = None,
-    ):
+    ) -> Iterable[Node]:
         if self.is_terminal_node(node):
             return
 
-        trajectory = list(prefix_steps or []) + node.get_trajectory()
-        self.update_prompts(trajectory)
-
-        transitions = self._candidate_generator.generate(node, prefix_steps)
+        transitions = list(self.candidate_generator.generate(node, requested_patch_sets=self.requested_patch_sets))
         if not transitions:
             return
 
         children: List[Node] = []
         for transition in transitions:
             child = Node(
-                transition.task,
-                result=transition.result,
-                parent=node,
+                created_node_task=transition.task_after,
+                parent_node=node,
+                created_from_patch_set=transition.patch_set,
             )
+            self._score_node(child)
             children.append(child)
 
+        node.children.extend(children)
+
         for child in children:
-            if child.result:
-                yield child.result
+            yield child
 
-        node.add_children(children)
-
-    def run(
-        self, prompt: str, steps: Optional[List[TaskTransition]] = None, **kwargs
-    ) -> Any:
+    def run(self, root: Node) -> Any:
         last_item = None
-        for item in self.run_iter(prompt, steps or [], **kwargs):
+        for item in self.run_iter(root):
             last_item = item
         return last_item
 
-    def run_iter(
-        self, prompt: str, steps: Optional[List[TaskTransition]] = None, **kwargs
-    ) -> Iterable[Any]:
+    def run_iter(self, root: Node) -> Iterable[Any]:
         raise NotImplementedError

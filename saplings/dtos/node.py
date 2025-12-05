@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from saplings.dtos.evaluations.node_score import NodeScore
 from saplings.dtos.tasks.create_node_task import CreateNodeTask
 from saplings.dtos.tasks.patches.patch_set import PatchSet
 from saplings.dtos.tasks.task_transition import TaskTransition
@@ -19,6 +20,8 @@ class Node(object):
         self.parent_node = parent_node
         self.created_from_patch_set = created_from_patch_set
         self.children: List["Node"] = []
+
+        self.node_score: Optional[NodeScore] = None
 
     def get_trajectory(self) -> List[TaskTransition]:
         task_transitions: List[TaskTransition] = []
