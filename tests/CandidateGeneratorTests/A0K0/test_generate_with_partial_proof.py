@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-os.environ['OPENAI_API_KEY']='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'
 import sys
 from pathlib import Path
 
