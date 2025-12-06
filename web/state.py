@@ -97,11 +97,12 @@ class SearchState:
 
     def _edge_payload(self, parent: Node, child: Node) -> Dict[str, Any]:
         patch_set = child.created_from_patch_set
+        label = patch_set.change_description if patch_set else ""
         return {
             "id": f"{parent.id}->{child.id}",
             "source": str(parent.id),
             "target": str(child.id),
-            "label": self._patch_label(patch_set),
+            "label": label,
             "patch": self._patch_payload(patch_set),
         }
 
