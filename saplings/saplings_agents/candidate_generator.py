@@ -27,6 +27,7 @@ class CandidateGenerator:
     def _task_to_dict(self, task: CreateNodeTask) -> dict[str, Any]:
         return {
             "goal": task.goal,
+            "next_step_ideas": task.next_step_ideas,
             "theorem": {
                 "label": task.theorem.label,
                 "floating_args": task.theorem.floating_args,

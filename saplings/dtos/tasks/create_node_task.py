@@ -11,3 +11,4 @@ class CreateNodeTask:
     goal: str
     theorem: TheoremState
     proof: ProofState
+    next_step_ideas: str

@@ -86,6 +86,7 @@ def build_node_from_form(form: Mapping[str, str]) -> Node:
         goal=goal,
         theorem=theorem_state,
         proof=proof_state,
+        next_step_ideas="",
     )
     return Node(created_node_task=task)
 
@@ -124,5 +125,6 @@ def build_default_root_node() -> Node:
         goal="Complete the A0K0 proof",
         theorem=theorem_state,
         proof=proof_state,
+        next_step_ideas="",
     )
     return Node(created_node_task=task)

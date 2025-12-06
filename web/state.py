@@ -40,6 +40,7 @@ class SearchState:
         node_score = node.node_score
         theorem = node.created_node_task.theorem
         proof = node.created_node_task.proof
+        next_step_ideas = node.created_node_task.next_step_ideas
         return {
             "id": str(node.id),
             "label": node.created_node_task.goal or theorem.label or f"Node {node.id}",
@@ -50,6 +51,7 @@ class SearchState:
             "structural_progress": node_score.structural_progress if node_score else 0.0,
             "reasoning": node_score.reasoning if node_score else "",
             "goal": node.created_node_task.goal,
+            "next_step_ideas": next_step_ideas,
             "theorem_label": theorem.label,
             "assertion": theorem.assertion,
             "floating_args": theorem.floating_args,
@@ -91,13 +93,7 @@ class SearchState:
     def _patch_label(self, patch_set: PatchSet | None) -> str:
         if patch_set is None:
             return ""
-        if patch_set.change_description:
-            return patch_set.change_description
-        if patch_set.next_step_ideas:
-            return patch_set.next_step_ideas
-        if patch_set.theorem_ops or patch_set.proof_ops:
-            return "patch"
-        return ""
+        return patch_set.change_description or ""
 
     def _edge_payload(self, parent: Node, child: Node) -> Dict[str, Any]:
         patch_set = child.created_from_patch_set

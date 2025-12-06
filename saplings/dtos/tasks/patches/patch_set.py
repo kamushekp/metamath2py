@@ -18,6 +18,7 @@ class PatchSet:
 
     def apply(self, task: CreateNodeTask) -> CreateNodeTask:
         updated = copy.deepcopy(task)
+        updated.next_step_ideas = self.next_step_ideas
 
         for op in self.theorem_ops:
             op.apply(updated.theorem)
