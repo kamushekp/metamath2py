@@ -130,7 +130,11 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
         const statusText = payload.status === 'finished' ? 'Готово' :
                            payload.status === 'error' ? 'Ошибка' : 'Работает';
         document.getElementById('status').textContent = statusText;
-        document.getElementById('counts').textContent = `${payload.counts?.nodes || 0} узлов · ${payload.counts?.edges || 0} ребер`;
+        const nodesCount = payload.counts?.nodes ?? 0;
+        const edgesCount = payload.counts?.edges ?? 0;
+        const patchesOk = payload.counts?.patches_accepted ?? 0;
+        const patchesBad = payload.counts?.patches_rejected ?? 0;
+        document.getElementById('counts').textContent = `${nodesCount} узлов · ${edgesCount} ребер · патчи: ${patchesOk}✓ / ${patchesBad}✕`;
         document.getElementById('message').textContent = payload.error ? `Ошибка: ${payload.error}` : '';
 
         const nextBtn = document.getElementById('next-btn');

@@ -14,6 +14,16 @@ from saplings.saplings_agents.predefined.proof_crew import create_proof_crew_age
 
 class CandidateGenerator:
 
+    def __init__(self):
+        self.accepted_patch_sets = 0
+        self.rejected_patch_sets = 0
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "accepted": self.accepted_patch_sets,
+            "rejected": self.rejected_patch_sets,
+        }
+
     def _task_to_dict(self, task: CreateNodeTask) -> dict[str, Any]:
         return {
             "goal": task.goal,
@@ -92,7 +102,13 @@ class CandidateGenerator:
 
         original_task = node.created_node_task
         for patch_set in generated.patch_sets:
-            next_task = patch_set.apply(original_task)
+            try:
+                next_task = patch_set.apply(original_task)
+            except Exception as exc:  # noqa: BLE001
+                self.rejected_patch_sets += 1
+                print(f"[CandidateGenerator] Skipping patch_set due to apply error: {exc}. Patch: {self._patch_set_to_dict(patch_set)}")
+                continue
+
             transitions.append(TaskTransition(original_task, patch_set, next_task))
 
         seen = set()
@@ -100,6 +116,7 @@ class CandidateGenerator:
             key = transition.to_candidate_key()
             if key not in seen:
                 seen.add(key)
+                self.accepted_patch_sets += 1
                 yield transition
             else:
                 print('already seen')

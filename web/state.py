@@ -137,12 +137,18 @@ class SearchState:
 
     def snapshot(self) -> Dict[str, Any]:
         status = "error" if self.error else ("finished" if self.finished else "running")
+        patch_stats = self.algo.candidate_generator.stats()
         return {
             "status": status,
             "error": self.error,
             "elements": self._elements(),
             "last_result": self.last_result,
-            "counts": {"nodes": len(self.nodes), "edges": len(self.edges)},
+            "counts": {
+                "nodes": len(self.nodes),
+                "edges": len(self.edges),
+                "patches_accepted": patch_stats.get("accepted", 0),
+                "patches_rejected": patch_stats.get("rejected", 0),
+            },
         }
 
     def step(self) -> Dict[str, Any]:
