@@ -12,5 +12,8 @@ pandas
 python-dotenv
 from-root
 
+# Web UI for interactive saplings search
+Flask
+
 # Testing
 pytest
