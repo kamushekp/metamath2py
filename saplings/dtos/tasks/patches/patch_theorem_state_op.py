@@ -1,58 +1,156 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal, Optional, Sequence
+from dataclasses import asdict, dataclass
+from typing import Protocol, Union
 
-from saplings.dtos.theorem_state import TheoremState
+from saplings.dtos.theorem_state import RequiredTheoremPremises, TheoremState
+
+
+class TheoremOp(Protocol):
+    def apply(self, target: TheoremState) -> None: ...
+
+
+# Floating args
+@dataclass
+class AddFloating:
+    value: str
+
+    def apply(self, target: TheoremState) -> None:
+        target.floating_args.append(self.value)
 
 
 @dataclass
-class PatchTheoremStateOp:
-    field: Literal["label", "floating_args", "essential_args", "required_theorem_premises", "assertion"]
-    operation: Literal["remove", "replace", "insert"]
-    content: str
-    index: Optional[int] = None
+class RemoveFloating:
+    name: str
 
-    def validate(self, target: TheoremState):
-        is_list_field = self.field in {"floating_args", "essential_args", "required_theorem_premises"}
-        if self.operation == "insert" and not is_list_field:
-            raise ValueError(f"Insert is only valid for list fields, got {self.field}")
-        if not is_list_field and self.index is not None:
-            raise ValueError(f"Index is not applicable for scalar field {self.field}")
+    def apply(self, target: TheoremState) -> None:
+        for idx, item in enumerate(target.floating_args):
+            if item == self.name:
+                target.floating_args.pop(idx)
+                return
+        raise ValueError(f"No floating arg '{self.name}' found to remove")
 
-        if not is_list_field:
-            return
 
-        seq: Sequence[str] = getattr(target, self.field)
-        if self.operation == "remove" or self.operation == "replace":
-            if self.index is None:
-                raise ValueError(f"Index is required for {self.operation} on {self.field}")
-            if self.index < 0 or self.index >= len(seq):
-                raise IndexError(f"Index {self.index} out of bounds for {self.field} (size {len(seq)})")
-        if self.operation == "insert" and self.index is not None:
-            if self.index < 0 or self.index > len(seq):
-                raise IndexError(f"Index {self.index} out of bounds for insert into {self.field} (size {len(seq)})")
+@dataclass
+class ReplaceFloating:
+    name: str
+    new_value: str
 
-    def apply(self, target: TheoremState):
-        self.validate(target)
-        is_list_field = self.field in {"floating_args", "essential_args", "required_theorem_premises"}
+    def apply(self, target: TheoremState) -> None:
+        for idx, item in enumerate(target.floating_args):
+            if item == self.name:
+                target.floating_args[idx] = self.new_value
+                return
+        raise ValueError(f"No floating arg '{self.name}' found to replace")
 
-        if is_list_field:
-            seq = getattr(target, self.field)
-            if self.operation == "insert":
-                if self.index is None:
-                    seq.append(self.content)
-                else:
-                    seq.insert(self.index, self.content)
-            elif self.operation == "remove":
-                seq.pop(self.index)
-            elif self.operation == "replace":
-                seq[self.index] = self.content
-            return
 
-        if self.operation == "remove":
-            setattr(target, self.field, list())
-        elif self.operation == "replace":
-            setattr(target, self.field, self.content)
-        else:
-            raise ValueError(f"Unsupported operation {self.operation} for scalar field {self.field}")
+# Essential args
+@dataclass
+class AddEssential:
+    value: str
+
+    def apply(self, target: TheoremState) -> None:
+        target.essential_args.append(self.value)
+
+
+@dataclass
+class RemoveEssential:
+    name: str
+
+    def apply(self, target: TheoremState) -> None:
+        for idx, item in enumerate(target.essential_args):
+            if item == self.name:
+                target.essential_args.pop(idx)
+                return
+        raise ValueError(f"No essential arg '{self.name}' found to remove")
+
+
+@dataclass
+class ReplaceEssential:
+    name: str
+    new_value: str
+
+    def apply(self, target: TheoremState) -> None:
+        for idx, item in enumerate(target.essential_args):
+            if item == self.name:
+                target.essential_args[idx] = self.new_value
+                return
+        raise ValueError(f"No essential arg '{self.name}' found to replace")
+
+
+# Required premises
+@dataclass
+class AddPremise:
+    left: str
+    right: str
+
+    def apply(self, target: TheoremState) -> None:
+        target.required_theorem_premises.append(RequiredTheoremPremises(left=self.left, right=self.right))
+
+
+@dataclass
+class RemovePremise:
+    left: str
+
+    def apply(self, target: TheoremState) -> None:
+        for idx, premise in enumerate(target.required_theorem_premises):
+            if premise.left == self.left:
+                target.required_theorem_premises.pop(idx)
+                return
+        raise ValueError(f"No premise '{self.left}' found to remove")
+
+
+@dataclass
+class ReplacePremise:
+    left: str
+    new_right: str
+
+    def apply(self, target: TheoremState) -> None:
+        for idx, premise in enumerate(target.required_theorem_premises):
+            if premise.left == self.left:
+                target.required_theorem_premises[idx] = RequiredTheoremPremises(left=self.left, right=self.new_right)
+                return
+        raise ValueError(f"No premise '{self.left}' found to replace")
+
+
+# Scalars
+@dataclass
+class ReplaceLabel:
+    new_label: str
+
+    def apply(self, target: TheoremState) -> None:
+        target.label = self.new_label
+
+
+@dataclass
+class ReplaceAssertion:
+    new_assertion: str
+
+    def apply(self, target: TheoremState) -> None:
+        target.assertion = self.new_assertion
+
+
+TheoremOpUnion = Union[
+    AddFloating,
+    RemoveFloating,
+    ReplaceFloating,
+    AddEssential,
+    RemoveEssential,
+    ReplaceEssential,
+    AddPremise,
+    RemovePremise,
+    ReplacePremise,
+    ReplaceLabel,
+    ReplaceAssertion,
+]
+
+
+def op_type(op: TheoremOpUnion) -> str:
+    return op.__class__.__name__
+
+
+def serialize_theorem_op(op: TheoremOpUnion) -> dict[str, str]:
+    """Convert a theorem op dataclass to dict for logging/UI."""
+    data = asdict(op)
+    data["type"] = op_type(op)
+    return data

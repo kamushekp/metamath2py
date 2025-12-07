@@ -4,6 +4,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from saplings.dtos.node import Node
 from saplings.dtos.tasks.patches.patch_set import PatchSet
+from saplings.dtos.tasks.patches.patch_theorem_state_op import serialize_theorem_op
+from saplings.dtos.tasks.patches.patch_proof_state_op import serialize_proof_op
 from saplings.saplings_agents.a_star import AStar
 
 
@@ -71,22 +73,10 @@ class SearchState:
             "change_description": patch_set.change_description,
             "next_step_ideas": patch_set.next_step_ideas,
             "theorem_ops": [
-                {
-                    "field": op.field,
-                    "operation": op.operation,
-                    "content": op.content,
-                    "index": op.index,
-                }
-                for op in patch_set.theorem_ops
+                serialize_theorem_op(op) for op in patch_set.theorem_ops
             ],
             "proof_ops": [
-                {
-                    "operation": op.operation,
-                    "left": op.left,
-                    "right": op.right,
-                    "comment": op.comment,
-                }
-                for op in patch_set.proof_ops
+                serialize_proof_op(op) for op in patch_set.proof_ops
             ],
         }
 

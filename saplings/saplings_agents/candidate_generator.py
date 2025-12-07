@@ -10,6 +10,8 @@ from saplings.dtos.tasks.create_node_task import CreateNodeTask
 from saplings.dtos.tasks.patches.patch_set import PatchSet, PatchSetList
 from saplings.dtos.tasks.task_transition import TaskTransition
 from saplings.saplings_agents.predefined.proof_crew import create_proof_crew_agent
+from saplings.dtos.tasks.patches.patch_theorem_state_op import serialize_theorem_op
+from saplings.dtos.tasks.patches.patch_proof_state_op import serialize_proof_op
 
 
 class CandidateGenerator:
@@ -55,22 +57,10 @@ class CandidateGenerator:
             "change_description": patch_set.change_description,
             "next_step_ideas": patch_set.next_step_ideas,
             "theorem_ops": [
-                {
-                    "field": op.field,
-                    "operation": op.operation,
-                    "content": op.content,
-                    "index": op.index,
-                }
-                for op in patch_set.theorem_ops
+                serialize_theorem_op(op) for op in patch_set.theorem_ops
             ],
             "proof_ops": [
-                {
-                    "operation": op.operation,
-                    "left": op.left,
-                    "right": op.right,
-                    "comment": op.comment,
-                }
-                for op in patch_set.proof_ops
+                serialize_proof_op(op) for op in patch_set.proof_ops
             ],
         }
 

@@ -1,40 +1,59 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal, Optional
+from dataclasses import asdict, dataclass
+from typing import Protocol, Union
 
 from saplings.dtos.proof_state import ProofState, ProofStep
 
 
+class ProofOp(Protocol):
+    def apply(self, target: ProofState) -> None: ...
+
+
 @dataclass
-class PatchProofStateOp:
-    operation: Literal["remove", "insert"]
-    left: Optional[str] = None
-    right: Optional[str] = None
-    comment: Optional[str] = None
+class AddStep:
+    left: str
+    right: str
+    comment: str
 
-    def validate(self, target: ProofState):
-        if target is None:
-            raise ValueError("Cannot apply proof patch without a target ProofState")
-        if self.operation == "insert":
-            if not self.left or not self.right:
-                raise ValueError("Insert requires both left and right values")
-        if self.operation == "remove":
-            if not self.left and not self.right:
-                raise ValueError("Remove requires left or right to match against")
+    def apply(self, target: ProofState) -> None:
+        target.steps.append(ProofStep(left=self.left, right=self.right, comment=self.comment))
 
-    def apply(self, target: ProofState):
-        self.validate(target)
-        seq = target.steps
-        if self.operation == "insert":
-            seq.append(ProofStep(left=self.left or "", right=self.right or "", comment=self.comment))
-            return
 
-        # remove: drop first matching step
-        for idx, step in enumerate(seq):
-            matches_left = self.left is None or step.left == self.left
-            matches_right = self.right is None or step.right == self.right
-            if matches_left and matches_right:
-                seq.pop(idx)
+@dataclass
+class RemoveStep:
+    left: str
+
+    def apply(self, target: ProofState) -> None:
+        for idx, step in enumerate(target.steps):
+            if step.left == self.left:
+                target.steps.pop(idx)
                 return
-        raise ValueError("No matching proof step found to remove")
+        raise ValueError(f"No proof step with left='{self.left}' found to remove")
+
+
+@dataclass
+class ReplaceStep:
+    left: str
+    new_right: str
+    new_comment: str
+
+    def apply(self, target: ProofState) -> None:
+        for idx, step in enumerate(target.steps):
+            if step.left == self.left:
+                target.steps[idx] = ProofStep(left=self.left, right=self.new_right, comment=self.new_comment)
+                return
+        raise ValueError(f"No proof step with left='{self.left}' found to replace")
+
+
+ProofOpUnion = Union[AddStep, RemoveStep, ReplaceStep]
+
+
+def proof_op_type(op: ProofOpUnion) -> str:
+    return op.__class__.__name__
+
+
+def serialize_proof_op(op: ProofOpUnion) -> dict[str, str]:
+    data = asdict(op)
+    data["type"] = proof_op_type(op)
+    return data
