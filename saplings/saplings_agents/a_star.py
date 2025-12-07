@@ -5,6 +5,7 @@ from typing import Iterable
 
 from saplings.dtos.node import Node
 from saplings.saplings_agents.base_algo import BaseAlgo
+from saplings.dtos.search_result import SearchResult
 
 
 class AStar(BaseAlgo):
@@ -43,8 +44,7 @@ class AStar(BaseAlgo):
             best_node = self.get_best_node(root_node)
 
         trajectory = best_node.get_trajectory()
-        score = best_node.node_score.score
         node_score = best_node.node_score
         is_solution = self.is_solution_node(best_node)
 
-        yield (trajectory, score, is_solution, node_score)
+        yield SearchResult(trajectory=trajectory, node_score=node_score, is_solution=is_solution)

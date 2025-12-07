@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional
 
 from saplings.dtos.node import Node
+from saplings.dtos.search_result import SearchResult
 from saplings.dtos.tasks.patches.patch_set import PatchSet
 from saplings.dtos.tasks.patches.patch_theorem_state_op import serialize_theorem_op
 from saplings.dtos.tasks.patches.patch_proof_state_op import serialize_proof_op
@@ -109,9 +110,13 @@ class SearchState:
         return trajectory
 
     def _final_result_payload(self, final_item: Any) -> Dict[str, Any]:
-        trajectory, score, is_solution, node_score = final_item
+        if not isinstance(final_item, SearchResult):
+            raise TypeError(f"Expected SearchResult from A* iterator, got {type(final_item).__name__}")
+        trajectory = final_item.trajectory
+        node_score = final_item.node_score
+        is_solution = final_item.is_solution
         return {
-            "score": score,
+            "score": node_score.score,
             "is_solution": is_solution,
             "reasoning": node_score.reasoning if node_score else "",
             "trajectory": self._trajectory_payload(trajectory),
