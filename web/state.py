@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, Dict, List, Optional
 
 from saplings.dtos.node import Node
@@ -44,9 +45,16 @@ class SearchState:
         theorem = node.created_node_task.theorem
         proof = node.created_node_task.proof
         next_step_ideas = node.created_node_task.next_step_ideas
+        patch_payload = self._patch_payload(node.created_from_patch_set)
+        patch_str = json.dumps(patch_payload or {}, ensure_ascii=False, separators=(",", ":"))
+        desc = node.created_from_patch_set.change_description if node.created_from_patch_set else ""
+        label_parts = [desc, "----------", patch_str, "----------"]
+        if score is not None:
+            label_parts.append(f"score={score:.3f}")
+        label = "\n".join(label_parts)
         return {
             "id": str(node.id),
-            "label": node.created_node_task.goal or theorem.label or f"Node {node.id}",
+            "label": label,
             "score": score,
             "depth": node_score.depth if node_score else 0,
             "stage": node_score.stage if node_score else "",
