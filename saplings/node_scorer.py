@@ -18,15 +18,8 @@ class NodeScorer:
     Higher scores indicate more promising nodes.
     """
 
-    def __init__(
-        self,
-        w_verify: float = 0.7,
-        w_structural: float = 0.25,
-        w_depth: float = 0.05,
-    ):
-        self.w_verify = w_verify
-        self.w_structural = w_structural
-        self.w_depth = w_depth
+    def __init__(self):
+        self.w_verify, self.w_structural, self.w_depth = 0.7, 0.25, 0.05
 
     def score(self, node: Node) -> NodeScore:
         """Compute a NodeScore for the given node."""
@@ -36,30 +29,17 @@ class NodeScorer:
         theorem_state = node.created_node_task.theorem
         proof_state = node.created_node_task.proof
 
-        verify_result: Optional[ProofCheckResult] = None
-        try:
-            runner = TheoremRecoveryRunner(theorem_state, proof_state)
-            verify_result = runner.verify()
-        except Exception:
-            verify_result = None
+        runner = TheoremRecoveryRunner(theorem_state, proof_state)
+        verify_result = runner.verify()
 
         verify_progress = self._verify_progress(verify_result)
         structural_progress = self._structural_progress(node)
         depth_penalty = log1p(depth)
 
-        utility = (
-            self.w_verify * verify_progress
-            + self.w_structural * structural_progress
-            - self.w_depth * depth_penalty
-        )
+        utility = self.w_verify * verify_progress + self.w_structural * structural_progress - self.w_depth * depth_penalty
 
-        reasoning_parts = [
-            f"depth={depth}",
-            f"verify_progress={verify_progress:.3f}",
-            f"structural_progress={structural_progress:.3f}",
-        ]
-        if verify_result is not None:
-            reasoning_parts.append(f"stage={verify_result.stage}")
+        reasoning_parts = [f"depth={depth}", f"verify_progress={verify_progress:.3f}",
+                           f"structural_progress={structural_progress:.3f}", f"stage={verify_result.stage}"]
         reasoning = "; ".join(reasoning_parts)
 
         return NodeScore(
@@ -68,7 +48,7 @@ class NodeScorer:
             depth=depth,
             verify_progress=verify_progress,
             structural_progress=structural_progress,
-            stage=verify_result.stage if verify_result is not None else "",
+            stage=verify_result.stage,
         )
 
     def _verify_progress(self, result: Optional[ProofCheckResult]) -> float:
