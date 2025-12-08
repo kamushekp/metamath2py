@@ -70,17 +70,6 @@ class ProofCheckResult:
     error_message: Optional[str] = None
     traceback: Optional[str] = None
 
-    def as_dict(self) -> dict[str, Optional[str]]:
-        """Return a JSON-serialisable representation of the result."""
-
-        return {
-            "statement_name": self.statement_name,
-            "success": self.success,
-            "stage": self.stage.value,
-            "error_message": self.error_message,
-            "traceback": self.traceback,
-        }
-
 
 def _format_traceback(exc: BaseException) -> str:
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))

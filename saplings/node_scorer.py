@@ -51,7 +51,7 @@ class NodeScorer:
             stage=verify_result.stage,
         )
 
-    def _verify_progress(self, result: Optional[ProofCheckResult]) -> float:
+    def _verify_progress(self, result: ProofCheckResult) -> float:
         if result is None:
             return 0.0
 
@@ -65,7 +65,9 @@ class NodeScorer:
             ProofCheckStage.EXECUTION: 0.7,
             ProofCheckStage.SUCCESS: 1.0,
         }
-        return stage_weights.get(result.stage, 0.0)
+
+        score = stage_weights[result.stage]
+        return score
 
     def _structural_progress(self, node: Node) -> float:
         theorem = node.created_node_task.theorem
