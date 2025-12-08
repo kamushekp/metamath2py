@@ -5,6 +5,7 @@ from typing import Any, Iterable, List
 from saplings.dtos.node import Node
 from saplings.node_scorer import NodeScorer
 from saplings.saplings_agents.candidate_generator import CandidateGenerator
+from verification import ProofCheckStage
 
 
 class BaseAlgo(object):
@@ -33,7 +34,7 @@ class BaseAlgo(object):
         node_score = node.node_score
         if node_score is None:
             raise ValueError("Node must be scored before solution check")
-        if node_score.verify_progress >= 1.0 or node_score.stage == "success":
+        if node_score.verify_progress >= 1.0 or node_score.stage == ProofCheckStage.SUCCESS:
             return True
         return False
 

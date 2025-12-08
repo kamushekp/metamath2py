@@ -3,6 +3,7 @@ from pathlib import Path
 from saplings.dtos.proof_state import ProofState, ProofStep
 from saplings.dtos.theorem_state import RequiredTheoremPremises, TheoremState
 from saplings.tools.theorem_recovery import TheoremRecoveryRunner
+from verification import ProofCheckStage
 
 
 def _normalize(text: str) -> str:
@@ -70,7 +71,7 @@ def test_verify_positive_result():
     result = runner.verify()
 
     assert result.success is True
-    assert result.stage == "success"
+    assert result.stage == ProofCheckStage.SUCCESS
 
 
 def test_verify_fails_when_last_step_missing():
@@ -81,4 +82,4 @@ def test_verify_fails_when_last_step_missing():
     result = runner.verify()
 
     assert result.success is False
-    assert result.stage == "execution"
+    assert result.stage == ProofCheckStage.EXECUTION

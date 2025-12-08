@@ -30,6 +30,8 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import Iterable, List, Optional
 
+from strenum import StrEnum
+
 try:
     from .paths import PROJECT_PATH, PathsEnum, proofs_folder_path, classes_folder_path
 except ImportError:
@@ -50,13 +52,21 @@ if _DEFAULT_PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _DEFAULT_PROJECT_ROOT)
 
 
+class ProofCheckStage(StrEnum):
+    IMPORT = "import"
+    LOOKUP = "lookup"
+    CONSTRUCTION = "construction"
+    EXECUTION = "execution"
+    SUCCESS = "success"
+
+
 @dataclass
 class ProofCheckResult:
     """Structured result of a proof verification attempt."""
 
     statement_name: str
     success: bool
-    stage: str
+    stage: ProofCheckStage
     error_message: Optional[str] = None
     traceback: Optional[str] = None
 
@@ -66,7 +76,7 @@ class ProofCheckResult:
         return {
             "statement_name": self.statement_name,
             "success": self.success,
-            "stage": self.stage,
+            "stage": self.stage.value,
             "error_message": self.error_message,
             "traceback": self.traceback,
         }
@@ -149,7 +159,7 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="import",
+            stage=ProofCheckStage.IMPORT,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
@@ -164,7 +174,7 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="import",
+            stage=ProofCheckStage.IMPORT,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
@@ -177,7 +187,7 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="import",
+            stage=ProofCheckStage.IMPORT,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
@@ -189,7 +199,7 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="lookup",
+            stage=ProofCheckStage.LOOKUP,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
@@ -200,7 +210,7 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="construction",
+            stage=ProofCheckStage.CONSTRUCTION,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
@@ -211,12 +221,12 @@ def _verify_proof_at(
         return ProofCheckResult(
             statement_name=statement_name,
             success=False,
-            stage="execution",
+            stage=ProofCheckStage.EXECUTION,
             error_message=str(exc),
             traceback=_format_traceback(exc),
         )
 
-    return ProofCheckResult(statement_name=statement_name, success=True, stage="success")
+    return ProofCheckResult(statement_name=statement_name, success=True, stage=ProofCheckStage.SUCCESS)
 
 
 def verify_proof(statement_name: str) -> ProofCheckResult:

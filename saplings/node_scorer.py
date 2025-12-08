@@ -6,7 +6,7 @@ from typing import Optional
 from saplings.dtos.evaluations.node_score import NodeScore
 from saplings.dtos.node import Node
 from saplings.tools.theorem_recovery import TheoremRecoveryRunner
-from verification import ProofCheckResult
+from verification import ProofCheckResult, ProofCheckStage
 
 class NodeScorer:
     """
@@ -39,7 +39,7 @@ class NodeScorer:
         utility = self.w_verify * verify_progress + self.w_structural * structural_progress - self.w_depth * depth_penalty
 
         reasoning_parts = [f"depth={depth}", f"verify_progress={verify_progress:.3f}",
-                           f"structural_progress={structural_progress:.3f}", f"stage={verify_result.stage}"]
+                           f"structural_progress={structural_progress:.3f}", f"stage={verify_result.stage.value}"]
         reasoning = "; ".join(reasoning_parts)
 
         return NodeScore(
@@ -58,12 +58,12 @@ class NodeScorer:
         if result.success:
             return 1.0
 
-        stage_weights = {
-            "import": 0.1,
-            "lookup": 0.2,
-            "construction": 0.4,
-            "execution": 0.7,
-            "success": 1.0,
+        stage_weights: dict[ProofCheckStage, float] = {
+            ProofCheckStage.IMPORT: 0.1,
+            ProofCheckStage.LOOKUP: 0.2,
+            ProofCheckStage.CONSTRUCTION: 0.4,
+            ProofCheckStage.EXECUTION: 0.7,
+            ProofCheckStage.SUCCESS: 1.0,
         }
         return stage_weights.get(result.stage, 0.0)
 
