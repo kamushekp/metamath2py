@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import hashlib
 from math import log1p
-from typing import Optional
 
 from saplings.dtos.evaluations.node_score import NodeScore
 from saplings.dtos.node import Node
@@ -20,6 +20,7 @@ class NodeScorer:
 
     def __init__(self):
         self.w_verify, self.w_structural, self.w_depth = 0.7, 0.25, 0.05
+        self.tie_break_span = 0.01  # keep tiny to only break ties
 
     def score(self, node: Node) -> NodeScore:
         """Compute a NodeScore for the given node."""
@@ -36,10 +37,21 @@ class NodeScorer:
         structural_progress = self._structural_progress(node)
         depth_penalty = log1p(depth)
 
-        utility = self.w_verify * verify_progress + self.w_structural * structural_progress - self.w_depth * depth_penalty
+        tie_break = self._tie_breaker(node)
+        utility = (
+            self.w_verify * verify_progress
+            + self.w_structural * structural_progress
+            - self.w_depth * depth_penalty
+            + tie_break
+        )
 
-        reasoning_parts = [f"depth={depth}", f"verify_progress={verify_progress:.3f}",
-                           f"structural_progress={structural_progress:.3f}", f"stage={verify_result.stage.value}"]
+        reasoning_parts = [
+            f"depth={depth}",
+            f"verify_progress={verify_progress:.3f}",
+            f"structural_progress={structural_progress:.3f}",
+            f"stage={verify_result.stage.value}",
+            f"tie_break={tie_break:.4f}",
+        ]
         reasoning = "; ".join(reasoning_parts)
 
         return NodeScore(
@@ -66,8 +78,21 @@ class NodeScorer:
             ProofCheckStage.SUCCESS: 1.0,
         }
 
-        score = stage_weights[result.stage]
-        return score
+        return stage_weights[result.stage]
+
+    def _tie_breaker(self, node: Node) -> float:
+        """
+        Deterministic, tiny jitter in [-tie_break_span/2, tie_break_span/2] to break score ties.
+        Based on a stable hash of the node's goal/theorem label/proof steps so equal content yields equal jitter.
+        """
+
+        task = node.created_node_task
+        proof_repr = "|".join(f"{step.left}->{step.right}#{step.comment or ''}" for step in task.proof.steps)
+        base = f"{task.goal}|{task.theorem.label}|{proof_repr}"
+
+        digest = hashlib.sha256(base.encode("utf-8")).digest()
+        normalized = int.from_bytes(digest[:8], "big") / (1 << 64)
+        return (normalized - 0.5) * self.tie_break_span
 
     def _structural_progress(self, node: Node) -> float:
         theorem = node.created_node_task.theorem

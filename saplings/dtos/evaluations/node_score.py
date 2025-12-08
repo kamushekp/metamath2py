@@ -15,4 +15,3 @@ class NodeScore(Evaluation):
     verify_progress: float = 0.0
     structural_progress: float = 0.0
     stage: Optional[ProofCheckStage] = None
-
