@@ -12,7 +12,7 @@ class BaseAlgo(object):
     def __init__(
         self,
         *,
-        requested_patch_sets: int = 5,
+        requested_patch_sets: int = 3,
         max_depth: int = 5,
     ):
         self.requested_patch_sets = requested_patch_sets

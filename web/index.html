@@ -5,6 +5,7 @@
     <title>Saplings A* Viewer</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="/web-static/persistence.js"></script>
     <style>
       :root {
         --bg: #0b1220;
@@ -49,6 +50,14 @@
     <header>
       <button id="next-btn" hx-post="/next" hx-target="#status" hx-swap="none">Далее</button>
       <button id="reset-btn" hx-post="/reset" hx-target="#status" hx-swap="none">Сброс</button>
+      <button id="save-btn" type="button">Сохранить</button>
+      <button id="load-btn" type="button">Загрузить</button>
+      <input id="load-file" type="file" accept="application/json" style="display:none;">
+      <div class="row" style="align-items:center;">
+        <input id="batch-count" type="number" min="1" value="10" style="width:80px;" title="Сколько шагов выполнить подряд">
+        <button id="batch-btn" type="button">Выполнить N шагов</button>
+        <span id="batch-status" class="pill" style="display:none;">...</span>
+      </div>
       <div class="row">
         <span id="status" class="pill">...</span>
         <span id="counts" class="pill"></span>
@@ -118,6 +127,8 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
       </div>
     </div>
     <script>
+      let lastPayload = null;
+
       const cy = cytoscape({
         container: document.getElementById('graph'),
         nodeDimensionsIncludeLabels: true,
@@ -129,7 +140,12 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
         layout: { name: 'breadthfirst', directed: true, padding: 12 }
       });
 
+      function setMessage(text) {
+        document.getElementById('message').textContent = text || '';
+      }
+
       function render(payload) {
+        lastPayload = payload;
         const elements = payload.elements || [];
         cy.json({ elements });
         cy.layout({ name: 'breadthfirst', directed: true, padding: 16, spacingFactor: 1.3 }).run();
@@ -143,7 +159,7 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
         const patchesOk = payload.counts?.patches_accepted ?? 0;
         const patchesBad = payload.counts?.patches_rejected ?? 0;
         document.getElementById('counts').textContent = `${nodesCount} узлов · ${edgesCount} ребер · патчи: ${patchesOk}✓ / ${patchesBad}✕`;
-        document.getElementById('message').textContent = payload.error ? `Ошибка: ${payload.error}` : '';
+        setMessage(payload.error ? `Ошибка: ${payload.error}` : '');
 
         const nextBtn = document.getElementById('next-btn');
         nextBtn.disabled = payload.status === 'finished' || payload.status === 'error';
@@ -165,12 +181,12 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
           const payload = JSON.parse(evt.detail.xhr.responseText);
           render(payload);
         } catch (e) {
-          document.getElementById('message').textContent = 'Не удалось разобрать ответ';
+          setMessage('Не удалось разобрать ответ');
         }
       });
 
       document.addEventListener('htmx:responseError', function(evt) {
-        document.getElementById('message').textContent = 'Ошибка запроса: ' + evt.detail.xhr.status;
+        setMessage('Ошибка запроса: ' + evt.detail.xhr.status);
       });
 
       cy.on('tap', 'node', function(evt) {
@@ -195,6 +211,67 @@ x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
       }
 
       window.addEventListener('resize', updateNodeSizing);
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const saveButton = document.getElementById('save-btn');
+        const loadButton = document.getElementById('load-btn');
+        const fileInput = document.getElementById('load-file');
+        const batchBtn = document.getElementById('batch-btn');
+        const batchCount = document.getElementById('batch-count');
+        const batchStatus = document.getElementById('batch-status');
+
+        async function runBatch() {
+          const target = parseInt(batchCount.value, 10);
+          if (!target || target <= 0) {
+            setMessage('Введите число шагов > 0');
+            return;
+          }
+          batchBtn.disabled = true;
+          batchCount.disabled = true;
+          batchStatus.style.display = 'inline-block';
+          batchStatus.textContent = 'Выполняется...';
+
+          let last;
+          for (let i = 0; i < target; i += 1) {
+            batchStatus.textContent = `Выполняется... ${i + 1}/${target}`;
+            const resp = await fetch('/next', { method: 'POST' });
+            if (!resp.ok) {
+              setMessage('Ошибка запроса при батче');
+              batchStatus.textContent = 'Ошибка';
+              break;
+            }
+            last = await resp.json();
+            render(last);
+            if (last.status !== 'running') {
+              break;
+            }
+          }
+          if (!last) {
+            batchStatus.textContent = 'Не выполнено';
+          } else if (last.status === 'running') {
+            batchStatus.textContent = 'Готово';
+          } else if (last.status === 'finished') {
+            batchStatus.textContent = 'Завершено';
+          } else {
+            batchStatus.textContent = 'Остановлено';
+          }
+          setTimeout(() => { batchStatus.style.display = 'none'; }, 1200);
+          batchBtn.disabled = false;
+          batchCount.disabled = false;
+        }
+
+        batchBtn.addEventListener('click', runBatch);
+
+        if (window.Persistence && typeof window.Persistence.initPersistence === 'function') {
+          window.Persistence.initPersistence({
+            onLoad: (payload) => render(payload),
+            saveButton,
+            loadButton,
+            fileInput,
+            onMessage: setMessage,
+          });
+        }
+      });
 
       bootstrap();
     </script>
