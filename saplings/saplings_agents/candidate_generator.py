@@ -87,7 +87,7 @@ class CandidateGenerator:
 
         transitions: List[TaskTransition] = []
 
-        run_result = Runner.run_sync(agent, input=runner_input)
+        run_result = Runner.run_sync(agent, input=runner_input, max_turns=30)
 
         generated = run_result.final_output_as(PatchSetList)
 
