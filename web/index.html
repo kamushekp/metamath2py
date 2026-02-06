@@ -1,110 +1,260 @@
 <!doctype html>
 <html lang="ru">
-  <head>
-    <meta charset="utf-8">
-    <title>Saplings A* Viewer</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
-    <script src="/web-static/persistence.js"></script>
-    <style>
-      :root {
-        --bg: #0b1220;
-        --panel: #0f172a;
-        --border: #1e293b;
-        --accent: #38bdf8;
-        --accent-strong: #2563eb;
-        --text: #e2e8f0;
-        --muted: #94a3b8;
-        --warn: #fbbf24;
-        --error: #f43f5e;
-        --shadow: 0 10px 30px rgba(0,0,0,0.3);
+
+<head>
+  <meta charset="utf-8">
+  <title>Saplings A* Viewer</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+  <script src="/web-static/persistence.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --border: #1e293b;
+      --accent: #38bdf8;
+      --accent-strong: #2563eb;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --warn: #fbbf24;
+      --error: #f43f5e;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Space Grotesk", "DM Sans", "SF Pro Display", sans-serif;
+    }
+
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #0a101d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    button {
+      background: var(--accent-strong);
+      color: #f8fafc;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      box-shadow: var(--shadow);
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35);
+    }
+
+    button:disabled {
+      background: #334155;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    #layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      height: calc(100vh - 58px);
+    }
+
+    #graph {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-height: 400px;
+      box-shadow: var(--shadow);
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      background: #0a101d;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 56px;
+      resize: vertical;
+    }
+
+    details.panel {
+      padding: 0;
+    }
+
+    details.panel summary {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    details.panel[open] summary {
+      border-bottom: 1px solid var(--border);
+    }
+
+    details.panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.panel summary {
+      list-style: none;
+    }
+
+    details.panel form {
+      padding: 12px;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill strong {
+      color: var(--text);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 1024px) {
+      #layout {
+        grid-template-columns: 1fr;
+        height: auto;
       }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Space Grotesk", "DM Sans", "SF Pro Display", sans-serif; }
-      header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: #0a101d; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
-      button { background: var(--accent-strong); color: #f8fafc; border: none; border-radius: 8px; padding: 9px 14px; cursor: pointer; font-size: 14px; box-shadow: var(--shadow); transition: transform 120ms ease, box-shadow 120ms ease; }
-      button:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(37,99,235,0.35); }
-      button:disabled { background: #334155; cursor: not-allowed; box-shadow: none; transform: none; }
-      #layout { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; padding: 12px; height: calc(100vh - 58px); }
-      #graph { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; min-height: 400px; box-shadow: var(--shadow); }
-      .stack { display: flex; flex-direction: column; gap: 12px; overflow: auto; }
-      .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; box-shadow: var(--shadow); }
-      .panel h3 { margin-top: 0; margin-bottom: 8px; font-size: 16px; letter-spacing: 0.2px; }
-      label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-      input, textarea { width: 100%; background: #0a101d; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
-      textarea { min-height: 56px; resize: vertical; }
-      details.panel { padding: 0; }
-      details.panel summary { padding: 12px; border-bottom: 1px solid var(--border); }
-      details.panel[open] summary { border-bottom: 1px solid var(--border); }
-      details.panel summary::-webkit-details-marker { display: none; }
-      details.panel summary { list-style: none; }
-      details.panel form { padding: 12px; }
-      .pill { padding: 6px 10px; background: #111827; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
-      .pill strong { color: var(--text); }
-      .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      pre { white-space: pre-wrap; word-wrap: break-word; margin: 0; font-size: 12px; line-height: 1.35; }
-      @media (max-width: 1024px) { #layout { grid-template-columns: 1fr; height: auto; } }
-    </style>
-  </head>
-  <body>
-    <header>
-      <button id="next-btn" hx-post="/next" hx-target="#status" hx-swap="none">Далее</button>
-      <button id="reset-btn" hx-post="/reset" hx-target="#status" hx-swap="none">Сброс</button>
-      <button id="save-btn" type="button">Сохранить</button>
-      <button id="load-btn" type="button">Загрузить</button>
-      <input id="load-file" type="file" accept="application/json" style="display:none;">
-      <div class="row" style="align-items:center;">
-        <input id="batch-count" type="number" min="1" value="10" style="width:80px;" title="Сколько шагов выполнить подряд">
-        <button id="batch-btn" type="button">Выполнить N шагов</button>
-        <span id="batch-status" class="pill" style="display:none;">...</span>
-      </div>
-      <div class="row">
-        <span id="status" class="pill">...</span>
-        <span id="counts" class="pill"></span>
-        <span id="message" class="pill"></span>
-      </div>
-    </header>
-    <div id="layout">
-      <div id="graph"></div>
-      <div class="stack">
-        <details class="panel" id="config-panel">
-          <summary style="list-style:none; cursor:pointer;"><h3 style="display:inline;">Начальные данные теоремы</h3></summary>
-          <form id="config-form" hx-post="/configure" hx-target="#status" hx-swap="none">
-            <div class="row">
-              <div style="flex: 1;">
-                <label for="goal">Цель / описание (natural language)</label>
-                <textarea id="goal" name="goal" placeholder="Доказать транзитивность импликации ...">Complete the A0K0 proof</textarea>
-              </div>
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <button id="next-btn" hx-post="/next" hx-target="#status" hx-swap="none">Далее</button>
+    <button id="reset-btn" hx-post="/reset" hx-target="#status" hx-swap="none">Сброс</button>
+    <button id="save-btn" type="button">Сохранить</button>
+    <button id="load-btn" type="button">Загрузить</button>
+    <input id="load-file" type="file" accept="application/json" style="display:none;">
+    <div class="row" style="align-items:center;">
+      <input id="batch-count" type="number" min="1" value="10" style="width:80px;"
+        title="Сколько шагов выполнить подряд">
+      <button id="batch-btn" type="button">Выполнить N шагов</button>
+      <span id="batch-status" class="pill" style="display:none;">...</span>
+    </div>
+    <div class="row">
+      <span id="status" class="pill">...</span>
+      <span id="counts" class="pill"></span>
+      <span id="message" class="pill"></span>
+    </div>
+  </header>
+  <div id="layout">
+    <div id="graph"></div>
+    <div class="stack">
+      <details class="panel" id="config-panel">
+        <summary style="list-style:none; cursor:pointer;">
+          <h3 style="display:inline;">Начальные данные теоремы</h3>
+        </summary>
+        <form id="config-form" hx-post="/configure" hx-target="#status" hx-swap="none">
+          <div class="row">
+            <div style="flex: 1;">
+              <label for="goal">Цель / описание (natural language)</label>
+              <textarea id="goal" name="goal"
+                placeholder="Доказать транзитивность импликации ...">Complete the A0K0 proof</textarea>
             </div>
-            <div class="row">
-              <div style="flex: 1;">
-                <label for="theorem_label">Label теоремы</label>
-                <input id="theorem_label" name="theorem_label" value="A0K0_WEB_UI">
-              </div>
+          </div>
+          <div class="row">
+            <div style="flex: 1;">
+              <label for="theorem_label">Label теоремы</label>
+              <input id="theorem_label" name="theorem_label" value="A0K0_WEB_UI">
             </div>
-            <div class="row">
-              <div style="flex: 1;">
-                <label for="floating_args">Floating args (через запятую или построчно)</label>
-                <input id="floating_args" name="floating_args" value="ph, ps, ch, th, ta">
-              </div>
-              <div style="flex: 1;">
-                <label for="essential_args">Essential args</label>
-                <input id="essential_args" name="essential_args" value="essential_1, essential_2, essential_3">
-              </div>
+          </div>
+          <div class="row">
+            <div style="flex: 1;">
+              <label for="floating_args">Floating args (через запятую или построчно)</label>
+              <input id="floating_args" name="floating_args" value="ph, ps, ch, th, ta">
             </div>
-            <div>
-              <label for="required_premises">Посылки теоремы (по строке: имя: выражение)</label>
-              <textarea id="required_premises" name="required_premises">essential_1: |- ph
+            <div style="flex: 1;">
+              <label for="essential_args">Essential args</label>
+              <input id="essential_args" name="essential_args" value="essential_1, essential_2, essential_3">
+            </div>
+          </div>
+          <div>
+            <label for="required_premises">Посылки теоремы (по строке: имя: выражение)</label>
+            <textarea id="required_premises" name="required_premises">essential_1: |- ph
 essential_2: |- ( ps -> ( ch -> th ) )
 essential_3: |- ( ph -> ( th -> ta ) )</textarea>
-            </div>
-            <div>
-              <label for="assertion">Итоговая формула (assertion)</label>
-              <textarea id="assertion" name="assertion">|- ( ps -> ( ch -> ta ) )</textarea>
-            </div>
-            <div>
-              <label for="proof_steps">Первые шаги доказательства (строка: left = right # comment)</label>
-              <textarea id="proof_steps" name="proof_steps">x1 = "wff ps"
+          </div>
+          <div>
+            <label for="assertion">Итоговая формула (assertion)</label>
+            <textarea id="assertion" name="assertion">|- ( ps -> ( ch -> ta ) )</textarea>
+          </div>
+          <div>
+            <label for="proof_steps">Первые шаги доказательства (строка: left = right # comment)</label>
+            <textarea id="proof_steps" name="proof_steps">x1 = "wff ps"
 x2 = "wff ph"
 x3 = "wff ch"
 x4 = "wff th"
@@ -114,166 +264,167 @@ x7 = "wff ps"
 x8 = |- ph # essential_1
 x9 = "partial proof step" # demo
 x10 = |- ( ps -> ( ch -> th ) ) # essential_2</textarea>
-            </div>
-            <div class="row" style="justify-content: flex-end; margin-top: 6px;">
-              <button type="submit">Задать старт</button>
-            </div>
-          </form>
-        </details>
-        <div class="panel">
-          <h3>Детали узла/ребра</h3>
-          <pre id="details-pre">Выберите узел или ребро</pre>
-        </div>
+          </div>
+          <div class="row" style="justify-content: flex-end; margin-top: 6px;">
+            <button type="submit">Задать старт</button>
+          </div>
+        </form>
+      </details>
+      <div class="panel">
+        <h3>Детали узла/ребра</h3>
+        <pre id="details-pre">Выберите узел или ребро</pre>
       </div>
     </div>
-    <script>
-      let lastPayload = null;
+  </div>
+  <script>
+    let lastPayload = null;
 
-      const cy = cytoscape({
-        container: document.getElementById('graph'),
-        nodeDimensionsIncludeLabels: true,
-        style: [
-          { selector: 'node', style: { 'background-color': '#22d3ee', 'label': 'data(label)', 'color': '#0b1220', 'font-size': 11, 'text-valign': 'center', 'text-halign': 'center', 'text-justification': 'left', 'width': 'label', 'height': 'label', 'padding': '16px', 'shape': 'roundrectangle', 'text-wrap': 'wrap', 'text-max-width': 400, 'text-background-color': '#0b1220', 'text-background-opacity': 0.75, 'text-background-padding': '6px', 'text-background-shape': 'roundrectangle' } },
-          { selector: 'edge', style: { 'width': 2, 'curve-style': 'bezier', 'line-color': '#94a3b8', 'target-arrow-color': '#94a3b8', 'target-arrow-shape': 'triangle', 'label': 'data(label)', 'font-size': 10, 'color': '#e2e8f0', 'text-wrap': 'wrap', 'text-max-width': 160, 'text-background-color': '#0b1220', 'text-background-opacity': 0.7, 'text-background-padding': '3px', 'text-background-shape': 'roundrectangle' } },
-          { selector: ':selected', style: { 'border-width': 2, 'border-color': '#fbbf24' } }
-        ],
-        layout: { name: 'breadthfirst', directed: true, padding: 12 }
-      });
+    const cy = cytoscape({
+      container: document.getElementById('graph'),
+      nodeDimensionsIncludeLabels: true,
+      style: [
+        { selector: 'node', style: { 'background-color': '#22d3ee', 'label': 'data(label)', 'color': '#0b1220', 'font-size': 11, 'text-valign': 'center', 'text-halign': 'center', 'text-justification': 'left', 'width': 'label', 'height': 'label', 'padding': '16px', 'shape': 'roundrectangle', 'text-wrap': 'wrap', 'text-max-width': 400, 'text-background-color': '#0b1220', 'text-background-opacity': 0.75, 'text-background-padding': '6px', 'text-background-shape': 'roundrectangle' } },
+        { selector: 'edge', style: { 'width': 2, 'curve-style': 'bezier', 'line-color': '#94a3b8', 'target-arrow-color': '#94a3b8', 'target-arrow-shape': 'triangle', 'label': 'data(label)', 'font-size': 10, 'color': '#e2e8f0', 'text-wrap': 'wrap', 'text-max-width': 160, 'text-background-color': '#0b1220', 'text-background-opacity': 0.7, 'text-background-padding': '3px', 'text-background-shape': 'roundrectangle' } },
+        { selector: ':selected', style: { 'border-width': 2, 'border-color': '#fbbf24' } }
+      ],
+      layout: { name: 'breadthfirst', directed: true, padding: 12 }
+    });
 
-      function setMessage(text) {
-        document.getElementById('message').textContent = text || '';
+    function setMessage(text) {
+      document.getElementById('message').textContent = text || '';
+    }
+
+    function render(payload) {
+      lastPayload = payload;
+      const elements = payload.elements || [];
+      cy.json({ elements });
+      cy.layout({ name: 'breadthfirst', directed: true, padding: 16, spacingFactor: 1.3 }).run();
+      updateNodeSizing();
+
+      const statusText = payload.status === 'finished' ? 'Готово' :
+        payload.status === 'error' ? 'Ошибка' : 'Работает';
+      document.getElementById('status').textContent = statusText;
+      const nodesCount = payload.counts?.nodes ?? 0;
+      const edgesCount = payload.counts?.edges ?? 0;
+      const patchesOk = payload.counts?.patches_accepted ?? 0;
+      const patchesBad = payload.counts?.patches_rejected ?? 0;
+      document.getElementById('counts').textContent = `${nodesCount} узлов · ${edgesCount} ребер · патчи: ${patchesOk}✓ / ${patchesBad}✕`;
+      setMessage(payload.error ? `Ошибка: ${payload.error}` : '');
+
+      const nextBtn = document.getElementById('next-btn');
+      nextBtn.disabled = payload.status === 'finished' || payload.status === 'error';
+
+      if (payload.last_result) {
+        document.getElementById('details-pre').textContent = JSON.stringify(payload.last_result, null, 2);
       }
+    }
 
-      function render(payload) {
-        lastPayload = payload;
-        const elements = payload.elements || [];
-        cy.json({ elements });
-        cy.layout({ name: 'breadthfirst', directed: true, padding: 16, spacingFactor: 1.3 }).run();
-        updateNodeSizing();
+    async function bootstrap() {
+      const response = await fetch('/state');
+      const data = await response.json();
+      render(data);
+    }
 
-        const statusText = payload.status === 'finished' ? 'Готово' :
-                           payload.status === 'error' ? 'Ошибка' : 'Работает';
-        document.getElementById('status').textContent = statusText;
-        const nodesCount = payload.counts?.nodes ?? 0;
-        const edgesCount = payload.counts?.edges ?? 0;
-        const patchesOk = payload.counts?.patches_accepted ?? 0;
-        const patchesBad = payload.counts?.patches_rejected ?? 0;
-        document.getElementById('counts').textContent = `${nodesCount} узлов · ${edgesCount} ребер · патчи: ${patchesOk}✓ / ${patchesBad}✕`;
-        setMessage(payload.error ? `Ошибка: ${payload.error}` : '');
+    document.addEventListener('htmx:afterRequest', function (evt) {
+      if (!evt.detail.xhr.responseText) return;
+      try {
+        const payload = JSON.parse(evt.detail.xhr.responseText);
+        render(payload);
+      } catch (e) {
+        setMessage('Не удалось разобрать ответ');
+      }
+    });
 
-        const nextBtn = document.getElementById('next-btn');
-        nextBtn.disabled = payload.status === 'finished' || payload.status === 'error';
+    document.addEventListener('htmx:responseError', function (evt) {
+      setMessage('Ошибка запроса: ' + evt.detail.xhr.status);
+    });
 
-        if (payload.last_result) {
-          document.getElementById('details-pre').textContent = JSON.stringify(payload.last_result, null, 2);
+    cy.on('tap', 'node', function (evt) {
+      const data = evt.target.data();
+      document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
+    });
+
+    cy.on('tap', 'edge', function (evt) {
+      const data = evt.target.data();
+      document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
+    });
+
+    function updateNodeSizing() {
+      const maxWidth = Math.min(Math.max(Math.floor(window.innerWidth * 0.45), 320), 800);
+      cy.style()
+        .selector('node')
+        .style({
+          'text-max-width': `${maxWidth}px`,
+          'padding': '18px'
+        })
+        .update();
+    }
+
+    window.addEventListener('resize', updateNodeSizing);
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const saveButton = document.getElementById('save-btn');
+      const loadButton = document.getElementById('load-btn');
+      const fileInput = document.getElementById('load-file');
+      const batchBtn = document.getElementById('batch-btn');
+      const batchCount = document.getElementById('batch-count');
+      const batchStatus = document.getElementById('batch-status');
+
+      async function runBatch() {
+        const target = parseInt(batchCount.value, 10);
+        if (!target || target <= 0) {
+          setMessage('Введите число шагов > 0');
+          return;
         }
-      }
+        batchBtn.disabled = true;
+        batchCount.disabled = true;
+        batchStatus.style.display = 'inline-block';
+        batchStatus.textContent = 'Выполняется...';
 
-      async function bootstrap() {
-        const response = await fetch('/state');
-        const data = await response.json();
-        render(data);
-      }
-
-      document.addEventListener('htmx:afterRequest', function(evt) {
-        if (!evt.detail.xhr.responseText) return;
-        try {
-          const payload = JSON.parse(evt.detail.xhr.responseText);
-          render(payload);
-        } catch (e) {
-          setMessage('Не удалось разобрать ответ');
-        }
-      });
-
-      document.addEventListener('htmx:responseError', function(evt) {
-        setMessage('Ошибка запроса: ' + evt.detail.xhr.status);
-      });
-
-      cy.on('tap', 'node', function(evt) {
-        const data = evt.target.data();
-        document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
-      });
-
-      cy.on('tap', 'edge', function(evt) {
-        const data = evt.target.data();
-        document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
-      });
-
-      function updateNodeSizing() {
-        const maxWidth = Math.min(Math.max(Math.floor(window.innerWidth * 0.45), 320), 800);
-        cy.style()
-          .selector('node')
-          .style({
-            'text-max-width': `${maxWidth}px`,
-            'padding': '18px'
-          })
-          .update();
-      }
-
-      window.addEventListener('resize', updateNodeSizing);
-
-      document.addEventListener('DOMContentLoaded', function() {
-        const saveButton = document.getElementById('save-btn');
-        const loadButton = document.getElementById('load-btn');
-        const fileInput = document.getElementById('load-file');
-        const batchBtn = document.getElementById('batch-btn');
-        const batchCount = document.getElementById('batch-count');
-        const batchStatus = document.getElementById('batch-status');
-
-        async function runBatch() {
-          const target = parseInt(batchCount.value, 10);
-          if (!target || target <= 0) {
-            setMessage('Введите число шагов > 0');
-            return;
+        let last;
+        for (let i = 0; i < target; i += 1) {
+          batchStatus.textContent = `Выполняется... ${i + 1}/${target}`;
+          const resp = await fetch('/next', { method: 'POST' });
+          if (!resp.ok) {
+            setMessage('Ошибка запроса при батче');
+            batchStatus.textContent = 'Ошибка';
+            break;
           }
-          batchBtn.disabled = true;
-          batchCount.disabled = true;
-          batchStatus.style.display = 'inline-block';
-          batchStatus.textContent = 'Выполняется...';
-
-          let last;
-          for (let i = 0; i < target; i += 1) {
-            batchStatus.textContent = `Выполняется... ${i + 1}/${target}`;
-            const resp = await fetch('/next', { method: 'POST' });
-            if (!resp.ok) {
-              setMessage('Ошибка запроса при батче');
-              batchStatus.textContent = 'Ошибка';
-              break;
-            }
-            last = await resp.json();
-            render(last);
-            if (last.status !== 'running') {
-              break;
-            }
+          last = await resp.json();
+          render(last);
+          if (last.status !== 'running') {
+            break;
           }
-          if (!last) {
-            batchStatus.textContent = 'Не выполнено';
-          } else if (last.status === 'running') {
-            batchStatus.textContent = 'Готово';
-          } else if (last.status === 'finished') {
-            batchStatus.textContent = 'Завершено';
-          } else {
-            batchStatus.textContent = 'Остановлено';
-          }
-          setTimeout(() => { batchStatus.style.display = 'none'; }, 1200);
-          batchBtn.disabled = false;
-          batchCount.disabled = false;
         }
-
-        batchBtn.addEventListener('click', runBatch);
-
-        if (window.Persistence && typeof window.Persistence.initPersistence === 'function') {
-          window.Persistence.initPersistence({
-            onLoad: (payload) => render(payload),
-            saveButton,
-            loadButton,
-            fileInput,
-            onMessage: setMessage,
-          });
+        if (!last) {
+          batchStatus.textContent = 'Не выполнено';
+        } else if (last.status === 'running') {
+          batchStatus.textContent = 'Готово';
+        } else if (last.status === 'finished') {
+          batchStatus.textContent = 'Завершено';
+        } else {
+          batchStatus.textContent = 'Остановлено';
         }
-      });
+        setTimeout(() => { batchStatus.style.display = 'none'; }, 1200);
+        batchBtn.disabled = false;
+        batchCount.disabled = false;
+      }
 
-      bootstrap();
-    </script>
-  </body>
+      batchBtn.addEventListener('click', runBatch);
+
+      if (window.Persistence && typeof window.Persistence.initPersistence === 'function') {
+        window.Persistence.initPersistence({
+          onLoad: (payload) => render(payload),
+          saveButton,
+          loadButton,
+          fileInput,
+          onMessage: setMessage,
+        });
+      }
+    });
+
+    bootstrap();
+  </script>
+</body>
+
 </html>

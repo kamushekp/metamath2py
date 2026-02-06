@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Iterable, Tuple
+import uuid
 
 from paths import classes_folder_path, proofs_folder_path
 from saplings.dtos.proof_state import ProofState
@@ -16,14 +17,13 @@ class TheoremRecoveryRunner:
         self.theorem_state = theorem_state
         self.proof_state = proof_state
 
-    def recover_theorem_data(self) -> Tuple[str, str]:
+    def recover_theorem_data(self, unique_label: str) -> Tuple[str, str]:
         """Render Python source for the theorem class and its proof module."""
 
-        label = self.theorem_state.label
         essential_lookup = {req.left: req.right for req in self.theorem_state.required_theorem_premises}
 
-        class_source = self._render_class_source(label, essential_lookup)
-        proof_source = self._render_proof_source(label)
+        class_source = self._render_class_source(unique_label, essential_lookup)
+        proof_source = self._render_proof_source(unique_label)
         return class_source, proof_source
 
     def _render_class_source(self, label: str, essential_lookup: dict[str, str]) -> str:
@@ -126,17 +126,17 @@ class TheoremRecoveryRunner:
                     imports.append(token)
         return imports
 
-    def _write_sources(self, class_source: str, proof_source: str) -> Tuple[Path, Path]:
+    def _write_sources(self, class_source: str, proof_source: str, unique_label: str) -> Tuple[Path, Path]:
         classes_root = Path(classes_folder_path)
         proofs_root = Path(proofs_folder_path)
         classes_root.mkdir(parents=True, exist_ok=True)
         proofs_root.mkdir(parents=True, exist_ok=True)
 
-        class_path = classes_root / f"{self.theorem_state.label}.py"
-        proof_path = proofs_root / f"{self.theorem_state.label}.py"
+        class_path = classes_root / f"{unique_label}.py"
+        proof_path = proofs_root / f"{unique_label}.py"
 
         if class_path.exists() or proof_path.exists():
-            raise FileExistsError(f"Target files already exist for label {self.theorem_state.label}")
+            raise FileExistsError(f"Target files already exist for label {unique_label}")
 
         class_path.write_text(class_source)
         proof_path.write_text(proof_source)
@@ -156,13 +156,16 @@ class TheoremRecoveryRunner:
         Reconstruct temporary theorem/proof modules, run verification, clean up, and
         return the ProofCheckResult.
         """
+        # Generate a unique label to avoid race conditions during parallel execution
+        unique_suffix = str(uuid.uuid4()).replace("-", "")
+        unique_label = f"{self.theorem_state.label}_{unique_suffix}"
 
-        class_source, proof_source = self.recover_theorem_data()
+        class_source, proof_source = self.recover_theorem_data(unique_label)
         written_paths: Tuple[Path, Path] | tuple[()] = tuple()
 
         try:
-            written_paths = self._write_sources(class_source, proof_source)
-            result = verify_proof(self.theorem_state.label)
+            written_paths = self._write_sources(class_source, proof_source, unique_label)
+            result = verify_proof(unique_label)
         finally:
             if written_paths:
                 self._cleanup(written_paths)
