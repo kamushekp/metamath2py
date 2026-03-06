@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from math import log1p
+import re
 
 from saplings.dtos.evaluations.node_score import NodeScore
 from saplings.dtos.node import Node
@@ -34,7 +35,7 @@ class NodeScorer:
         verify_result = runner.verify()
 
         verify_progress = self._verify_progress(verify_result)
-        structural_progress = self._structural_progress(node)
+        structural_progress, structural_details = self._structural_progress(node)
         depth_penalty = log1p(depth)
 
         tie_break = self._tie_breaker(node)
@@ -49,6 +50,9 @@ class NodeScorer:
             f"depth={depth}",
             f"verify_progress={verify_progress:.3f}",
             f"structural_progress={structural_progress:.3f}",
+            f"premise_coverage={structural_details['premise_coverage']:.3f}",
+            f"dependency_consistency={structural_details['dependency_consistency']:.3f}",
+            f"proof_growth={structural_details['proof_growth']:.3f}",
             f"stage={verify_result.stage.value}",
             f"tie_break={tie_break:.4f}",
         ]
@@ -94,10 +98,27 @@ class NodeScorer:
         normalized = int.from_bytes(digest[:8], "big") / (1 << 64)
         return (normalized - 0.5) * self.tie_break_span
 
-    def _structural_progress(self, node: Node) -> float:
+    def _structural_progress(self, node: Node) -> tuple[float, dict[str, float]]:
         theorem = node.created_node_task.theorem
         proof = node.created_node_task.proof
 
+        premise_coverage = self._premise_coverage(theorem=theorem, proof=proof)
+        dependency_consistency = self._dependency_consistency(proof=proof)
+        proof_growth = self._proof_growth(theorem=theorem, proof=proof)
+
+        # Weighted blend that better separates nodes with identical verifier stage.
+        structural_progress = (
+            0.5 * premise_coverage
+            + 0.3 * dependency_consistency
+            + 0.2 * proof_growth
+        )
+        return structural_progress, {
+            "premise_coverage": premise_coverage,
+            "dependency_consistency": dependency_consistency,
+            "proof_growth": proof_growth,
+        }
+
+    def _premise_coverage(self, *, theorem, proof) -> float:
         required = theorem.required_theorem_premises
         if not required:
             return 0.0
@@ -116,3 +137,33 @@ class NodeScorer:
                     break
 
         return len(used_hypotheses) / len(required)
+
+    def _dependency_consistency(self, *, proof) -> float:
+        """
+        Fraction of intermediate variable references that point to already-defined steps.
+        """
+
+        defined_steps: set[str] = set()
+        total_refs = 0
+        resolved_refs = 0
+
+        for step in proof.steps:
+            refs = re.findall(r"\bx_?\d+\b", step.right)
+            for ref in refs:
+                total_refs += 1
+                if ref in defined_steps:
+                    resolved_refs += 1
+            defined_steps.add(step.left)
+
+        if total_refs == 0:
+            return 1.0 if proof.steps else 0.0
+        return resolved_refs / total_refs
+
+    def _proof_growth(self, *, theorem, proof) -> float:
+        """
+        Smooth progress estimate based on proof length and theorem shape.
+        """
+
+        step_count = len(proof.steps)
+        target_steps = max(1, len(theorem.floating_args) + len(theorem.essential_args) + 1)
+        return min(1.0, log1p(step_count) / log1p(target_steps))

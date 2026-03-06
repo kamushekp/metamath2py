@@ -17,13 +17,15 @@ class TheoremRecoveryRunner:
         self.theorem_state = theorem_state
         self.proof_state = proof_state
 
-    def recover_theorem_data(self, unique_label: str) -> Tuple[str, str]:
+    def recover_theorem_data(self, unique_label: str | None = None) -> Tuple[str, str]:
         """Render Python source for the theorem class and its proof module."""
+
+        label = unique_label or self.theorem_state.label
 
         essential_lookup = {req.left: req.right for req in self.theorem_state.required_theorem_premises}
 
-        class_source = self._render_class_source(unique_label, essential_lookup)
-        proof_source = self._render_proof_source(unique_label)
+        class_source = self._render_class_source(label, essential_lookup)
+        proof_source = self._render_proof_source(label)
         return class_source, proof_source
 
     def _render_class_source(self, label: str, essential_lookup: dict[str, str]) -> str:

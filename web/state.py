@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import heapq
 import json
+import os
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from saplings.dtos.evaluations.node_score import NodeScore
@@ -35,6 +37,14 @@ from saplings.saplings_agents.a_star import AStar
 from verification import ProofCheckStage
 
 
+@dataclass
+class SearchRunConfig:
+    requested_patch_sets: int = 2
+    max_depth: int = 13
+    step_max_turns: int = 8
+    env_overrides: Dict[str, str] = field(default_factory=dict)
+
+
 class SearchState:
     """In-memory search session controller for stepping through A*."""
 
@@ -57,25 +67,45 @@ class SearchState:
         "ReplaceStep": ReplaceStep,
     }
 
-    def __init__(self, root_builder: Callable[[], Node]):
+    def __init__(self, root_builder: Callable[[], Node], run_config: Optional[SearchRunConfig] = None):
         self.root_builder = root_builder
+        self.run_config = run_config or SearchRunConfig()
         self.reset()
 
     def set_builder(self, root_builder: Callable[[], Node]) -> None:
         self.root_builder = root_builder
 
+    def configure_run(self, run_config: Dict[str, Any]) -> None:
+        self.run_config = SearchRunConfig(
+            requested_patch_sets=max(1, int(run_config.get("requested_patch_sets", self.run_config.requested_patch_sets))),
+            max_depth=max(1, int(run_config.get("max_depth", self.run_config.max_depth))),
+            step_max_turns=max(1, int(run_config.get("step_max_turns", self.run_config.step_max_turns))),
+            env_overrides={k: str(v) for k, v in (run_config.get("env_overrides") or {}).items()},
+        )
+
+    def _apply_env_overrides(self) -> None:
+        for key, value in self.run_config.env_overrides.items():
+            os.environ[key] = value
+
     def reset(self, *, root: Optional[Node] = None) -> None:
-        self.algo = AStar()
+        self._apply_env_overrides()
+        self.algo = AStar(
+            requested_patch_sets=self.run_config.requested_patch_sets,
+            max_depth=self.run_config.max_depth,
+            step_max_turns=self.run_config.step_max_turns,
+        )
         self.root = root or self.root_builder()
         self.algo._init_root_node(self.root)
         self.frontier: list[tuple[float, int, Node]] = []
         heapq.heappush(self.frontier, (-self.root.node_score.score, 0, self.root))
         self._tiebreaker = 1
+        self.step_index = 0
         self.pending_children: list[Node] = []
         self.nodes: Dict[str, Dict[str, Any]] = {}
         self.edges: List[Dict[str, Any]] = []
         self.finished = False
         self.last_result: Optional[Dict[str, Any]] = None
+        self.last_event: Optional[Dict[str, Any]] = None
         self.error: Optional[str] = None
         self._register_node(self.root)
 
@@ -171,6 +201,14 @@ class SearchState:
         edge_elements = [{"data": data} for data in self.edges]
         return node_elements + edge_elements
 
+    def _run_config_payload(self) -> Dict[str, Any]:
+        return {
+            "requested_patch_sets": self.run_config.requested_patch_sets,
+            "max_depth": self.run_config.max_depth,
+            "step_max_turns": self.run_config.step_max_turns,
+            "env_overrides": self.run_config.env_overrides,
+        }
+
     def snapshot(self) -> Dict[str, Any]:
         status = "error" if self.error else ("finished" if self.finished else "running")
         patch_stats = self.algo.candidate_generator.stats()
@@ -179,6 +217,13 @@ class SearchState:
             "error": self.error,
             "elements": self._elements(),
             "last_result": self.last_result,
+            "last_event": self.last_event,
+            "run_config": self._run_config_payload(),
+            "runtime": {
+                "step_index": self.step_index,
+                "frontier_size": len(self.frontier),
+                "pending_children": len(self.pending_children),
+            },
             "counts": {
                 "nodes": len(self.nodes),
                 "edges": len(self.edges),
@@ -191,11 +236,20 @@ class SearchState:
         if self.finished or self.error:
             return self.snapshot()
 
+        self.step_index += 1
+
         if self.pending_children:
             next_child = self.pending_children.pop(0)
             self._register_node(next_child)
+            self.last_event = {
+                "kind": "reveal_pending_child",
+                "step_index": self.step_index,
+                "node_id": str(next_child.id),
+                "parent_id": str(next_child.parent_node.id) if next_child.parent_node else None,
+            }
             return self.snapshot()
 
+        skipped_dead_ends = 0
         while self.frontier:
             _, _, current = heapq.heappop(self.frontier)
 
@@ -207,10 +261,19 @@ class SearchState:
                 )
                 self.finished = True
                 self.last_result = self._final_result_payload(result)
+                self.last_event = {
+                    "kind": "solution_found",
+                    "step_index": self.step_index,
+                    "node_id": str(current.id),
+                    "skipped_dead_ends": skipped_dead_ends,
+                }
                 return self.snapshot()
 
+            accepted_before = self.algo.candidate_generator.accepted_patch_sets
+            rejected_before = self.algo.candidate_generator.rejected_patch_sets
             children = list(self.algo.expand(current) or [])
             if not children:
+                skipped_dead_ends += 1
                 continue
 
             for child in children:
@@ -220,6 +283,18 @@ class SearchState:
 
             self.pending_children = children[1:]
             self._register_node(children[0])
+            accepted_after = self.algo.candidate_generator.accepted_patch_sets
+            rejected_after = self.algo.candidate_generator.rejected_patch_sets
+            self.last_event = {
+                "kind": "expanded_node",
+                "step_index": self.step_index,
+                "expanded_node_id": str(current.id),
+                "new_children": len(children),
+                "first_child_id": str(children[0].id),
+                "accepted_delta": accepted_after - accepted_before,
+                "rejected_delta": rejected_after - rejected_before,
+                "skipped_dead_ends": skipped_dead_ends,
+            }
             return self.snapshot()
 
         # No more frontier: report best node found.
@@ -231,6 +306,13 @@ class SearchState:
         )
         self.finished = True
         self.last_result = self._final_result_payload(result)
+        self.last_event = {
+            "kind": "frontier_exhausted",
+            "step_index": self.step_index,
+            "best_node_id": str(best_node.id),
+            "is_solution": result.is_solution,
+            "skipped_dead_ends": skipped_dead_ends,
+        }
         return self.snapshot()
 
     # --- Persistence helpers ---
@@ -290,11 +372,14 @@ class SearchState:
             "finished": self.finished,
             "error": self.error,
             "last_result": self.last_result,
+            "last_event": self.last_event,
+            "step_index": self.step_index,
             "tiebreaker": self._tiebreaker,
             "frontier": frontier_payload,
             "pending_children": pending_ids,
             "nodes": [self._serialize_node(node) for node in nodes],
             "candidate_stats": candidate_stats,
+            "run_config": self._run_config_payload(),
         }
 
     def load_state(self, payload: Dict[str, Any]) -> None:
@@ -305,6 +390,11 @@ class SearchState:
         if "nodes" not in base_payload:
             self._load_snapshot_only(base_payload)
             return
+
+        run_config_payload = base_payload.get("run_config") or {}
+        if isinstance(run_config_payload, dict):
+            self.configure_run(run_config_payload)
+        self._apply_env_overrides()
 
         node_objs: dict[str, Node] = {}
         parent_ids: dict[str, Optional[str]] = {}
@@ -335,7 +425,11 @@ class SearchState:
         roots = [node for node in node_objs.values() if node.parent_node is None]
         if len(roots) != 1:
             raise ValueError("Ожидался один корень графа в сохраненном файле")
-        self.algo = AStar()
+        self.algo = AStar(
+            requested_patch_sets=self.run_config.requested_patch_sets,
+            max_depth=self.run_config.max_depth,
+            step_max_turns=self.run_config.step_max_turns,
+        )
         for node in node_objs.values():
             if node.node_score is None:
                 self.algo._score_node(node)
@@ -346,6 +440,8 @@ class SearchState:
         self.finished = bool(base_payload.get("finished", False))
         self.error = base_payload.get("error")
         self.last_result = base_payload.get("last_result")
+        self.last_event = base_payload.get("last_event")
+        self.step_index = int(base_payload.get("step_index", 0))
         self._tiebreaker = int(base_payload.get("tiebreaker", 0))
 
         if self._tiebreaker <= 0:
@@ -394,6 +490,8 @@ class SearchState:
             elif "id" in data:
                 self.nodes[data["id"]] = data
         self.last_result = snapshot_payload.get("last_result") if isinstance(snapshot_payload, dict) else None
+        self.last_event = snapshot_payload.get("last_event") if isinstance(snapshot_payload, dict) else None
+        self.step_index = int(snapshot_payload.get("runtime", {}).get("step_index", 0)) if isinstance(snapshot_payload, dict) else 0
         self.error = snapshot_payload.get("error") if isinstance(snapshot_payload, dict) else None
         self.finished = True
         self.frontier = []

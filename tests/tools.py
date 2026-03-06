@@ -73,8 +73,12 @@ def temporarily_remove_theorem_files(theorem_name: str) -> Iterator[Tuple[Path, 
 def clear_metamath2py_modules() -> None:
     """Drop cached metamath2py.* modules to avoid leaking state between tests."""
     pkg_root = PathsEnum.metamath2py_folder_name.value
+    prefixes = (
+        f"{pkg_root}.{PathsEnum.classes_folder_name.value}",
+        f"{pkg_root}.{PathsEnum.proofs_folder_name.value}",
+    )
     for mod in list(sys.modules):
-        if mod == pkg_root or mod.startswith(f"{pkg_root}."):
+        if any(mod == prefix or mod.startswith(f"{prefix}.") for prefix in prefixes):
             sys.modules.pop(mod, None)
 
 

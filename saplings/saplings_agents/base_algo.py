@@ -14,10 +14,11 @@ class BaseAlgo(object):
         *,
         requested_patch_sets: int = 3,
         max_depth: int = 5,
+        step_max_turns: int | None = None,
     ):
         self.requested_patch_sets = requested_patch_sets
         self.max_depth = max_depth
-        self.candidate_generator = CandidateGenerator()
+        self.candidate_generator = CandidateGenerator(step_max_turns=step_max_turns)
         self.node_scorer = NodeScorer()
 
     def _node_depth(self, node: Node) -> int:

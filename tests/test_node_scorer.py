@@ -125,4 +125,34 @@ def test_node_scorer_assigns_higher_score_to_more_complete_proof():
     assert isclose(full_score.verify_progress, 1.0)
 
 
+def test_node_scorer_separates_nodes_with_same_verify_stage():
+    theorem_state = _build_theorem_state()
+
+    less_complete = ProofState(steps=_intermediate_proof_state().steps[:-1])
+    more_complete = _intermediate_proof_state()
+
+    less_task = CreateNodeTask(
+        goal="Less complete execution-stage proof",
+        theorem=theorem_state,
+        proof=less_complete,
+    )
+    more_task = CreateNodeTask(
+        goal="More complete execution-stage proof",
+        theorem=theorem_state,
+        proof=more_complete,
+    )
+
+    less_node = Node(created_node_task=less_task)
+    more_node = Node(created_node_task=more_task, parent_node=less_node)
+
+    scorer = NodeScorer()
+    less_score = scorer.score(less_node)
+    more_score = scorer.score(more_node)
+
+    assert less_score.stage == more_score.stage
+    assert less_score.stage is not None
+    assert less_score.stage.value == "execution"
+    assert more_score.verify_progress == less_score.verify_progress
+    assert more_score.structural_progress > less_score.structural_progress
+    assert more_score.score > less_score.score
 

@@ -11,10 +11,16 @@ from saplings.dtos.tasks.task_transition import TaskTransition
 class Node(object):
     def __init__(
         self,
-        created_node_task: CreateNodeTask,
+        created_node_task: Optional[CreateNodeTask] = None,
         parent_node: Optional["Node"] = None,
         created_from_patch_set: Optional[PatchSet] = None,
+        task: Optional[CreateNodeTask] = None,
     ):
+        if created_node_task is None:
+            created_node_task = task
+        if created_node_task is None:
+            raise TypeError("Node requires 'created_node_task' (or legacy alias 'task')")
+
         self.id = id(self)
         self.created_node_task = created_node_task
         self.parent_node = parent_node

@@ -56,6 +56,7 @@ class TheoremSearchClient:
         verify_certs: bool = False,
         ssl_assert_hostname: bool = False,
         ssl_show_warn: bool = False,
+        ensure_index_on_init: bool = False,
     ) -> None:
         """Create a new client.
 
@@ -75,6 +76,10 @@ class TheoremSearchClient:
         http_auth, use_ssl, verify_certs, ssl_assert_hostname, ssl_show_warn:
             Forwarded to :class:`opensearchpy.OpenSearch` to support secured
             deployments.
+        ensure_index_on_init:
+            When ``True``, eagerly call :meth:`ensure_index` during
+            initialization. Defaults to ``False`` to keep object construction
+            side-effect free in offline/test environments.
         """
 
         if dataset_preference not in {"auto", "origin", "examples"}:
@@ -98,7 +103,9 @@ class TheoremSearchClient:
 
         self._data_root = self._resolve_data_root()
         self._state_path = self.data_dir / self.INDEX_STATE_FILENAME
-        self.ensure_index()
+        self._index_ready = False
+        if ensure_index_on_init:
+            self.ensure_index()
 
     # ------------------------------------------------------------------
     # Dataset discovery helpers
@@ -139,6 +146,7 @@ class TheoremSearchClient:
 
         if not force and current_state == expected_state and self._index_exists():
             LOGGER.debug("Index %s is already up to date", self.index_name)
+            self._index_ready = True
             return False
 
         if self._index_exists():
@@ -153,6 +161,7 @@ class TheoremSearchClient:
         self.client.indices.refresh(index=self.index_name)
 
         self._write_index_state(expected_state)
+        self._index_ready = True
         return True
 
     def _index_exists(self) -> bool:
@@ -286,6 +295,9 @@ class TheoremSearchClient:
         phrase_slop:
             Maximum allowed distance between tokens when evaluating phrase matches.
         """
+
+        if not self._index_ready:
+            self.ensure_index()
 
         body = {
             "size": top_k,
@@ -500,6 +512,7 @@ class TheoremSearchClient:
             self.client.indices.delete(index=self.index_name)
         if self._state_path.exists():
             self._state_path.unlink()
+        self._index_ready = False
 
     def ping(self) -> bool:
         """Return ``True`` when OpenSearch responds to a ping request."""

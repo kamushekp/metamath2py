@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## Комментарии от создателя датасета
+
+Мы находимся в репозитории, цель которого и идеология, вообще говоря, описана в статье, которая лежит в папке artifacts. Прочитайте обязательно эту статью, чтобы понять идеологию, да. Стоит лишь добавить, что конечная цель — это все же не составление датасета, а автоматическая генерация теорем и их доказательств, задаваемых при помощи естественного языка. Помимо статьи, там есть еще некоторые файлы, которые, например, показывают, как можно верифицировать при помощи оригинальной программы Metamath, которая тоже лежит в этом репозитории, в папке Metamath Program.
+
 ## Project Structure & Module Organization
 - Core translator logic: `metamath2py/`; reusable proof builders: `code_builders/`; domain objects: `classes/`.
 - Dataset helpers (JSONL builders, substitution tools) sit at repo root for clarity; Metamath database snapshots live in `database/`.
