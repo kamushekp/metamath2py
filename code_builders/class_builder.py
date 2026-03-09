@@ -2,6 +2,7 @@ import re
 from typing import List
 
 from code_builders.postprocessor import replace_class_variables
+from code_builders.floating_names_handler import floating_names_handler
 from code_builders.pythonic_names_handler import PythonicNamesHandler
 from models.errors import MMError
 from models.mm_models import EssentialHyp, FloatingHyp, Statement, StatementType, Assertion
@@ -166,11 +167,16 @@ class ClassBuilder:
         return '\n'.join(floating_class_args)
 
     def set_floatings(self, floatings: List[FloatingHyp]):
+        sanitized_floatings = []
         if len(floatings) > 0:
             for floating in floatings:
-                self.floatings_kinds.append(floating.variable.content)
+                original_name = floating.variable.content
+                self.floatings_kinds.append(original_name)
+                sanitized_name = floating_names_handler.sanitize(original_name)
+                self._floating_map[original_name] = sanitized_name
+                sanitized_floatings.append(sanitized_name)
 
-        self._FLOATING_ARGS_DEFINITION = ClassBuilder.build_floatings([f.variable.content for f in floatings])
+        self._FLOATING_ARGS_DEFINITION = ClassBuilder.build_floatings(sanitized_floatings)
 
     def append_line_in_proof(self, line: str):
         self._PROOF_LINES += f"{tabs_8}{line}\n"

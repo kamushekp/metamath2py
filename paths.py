@@ -10,6 +10,9 @@ load_dotenv(from_root(".env"))
 
 PROJECT_PATH = from_here()
 
+class_variables_path = os.path.join(PROJECT_PATH, 'code_builders','class_variables.csv')
+pythonic_names_map_path = os.path.join(PROJECT_PATH, 'code_builders', 'pythonic_names_map.csv')
+floating_names_map_path = os.path.join(PROJECT_PATH, 'code_builders', 'floating_names_map.csv')
 class_variables_path = os.path.join(PROJECT_PATH, "code_builders", "class_variables.csv")
 pythonic_names_map_path = os.path.join(PROJECT_PATH, "code_builders", "pythonic_names_map.csv")
 
@@ -28,4 +31,5 @@ agent_runs_folder_path = os.path.join(mmverify_output_folder, "agent_runs")
 src_classes = Path(classes_folder_path)
 src_proofs = Path(proofs_folder_path)
 
+metamath_path = 'PATH TO METAMATH SET.MM FILE.'
 metamath_path = "PATH TO METAMATH SET.MM FILE."
