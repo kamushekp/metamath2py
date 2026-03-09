@@ -1,6 +1,7 @@
 from typing import List
 
 from code_builders.pythonic_names_handler import PythonicNamesHandler
+from code_builders.floating_names_handler import floating_names_handler
 from models.marked_stack import MarkedStackSample
 from models.mm_models import Statement, FloatingHyp, Var
 
@@ -25,7 +26,8 @@ class AssertionOrProvableLineBuilder:
     def add_floating_substitution(self, floatings: List[FloatingHyp], subst: dict[Var, MarkedStackSample]):
         args: List[str] = []
         for floating in floatings:
-            arg = f'"{floating.variable.content}": {subst[floating.variable].mark}'
+            sanitized_name = floating_names_handler.sanitize(floating.variable.content)
+            arg = f'"{sanitized_name}": {subst[floating.variable].mark}'
             args.append(arg)
         self._floating_args = '{' + ', '.join(args) + '}'
 
