@@ -1,0 +1,24 @@
+{
+  "goal": "Modus ponens combined with a double syllogism inference.",
+  "next_step_ideas": "",
+  "proof_steps": [],
+  "auto_run": {
+    "max_steps": 100,
+    "step_delay_ms": 60
+  },
+  "step_log": {
+    "enabled": true,
+    "path": "../out/web_steps_log.jsonl",
+    "truncate_on_start": true
+  },
+  "search": {
+    "requested_patch_sets": 2,
+    "max_depth": 13,
+    "step_max_turns": 8
+  },
+  "env": {
+    "SAPLINGS_PRIMARY_MODEL": "gpt-5.2",
+    "SAPLINGS_CHEAP_MODEL": "gpt-5-mini",
+    "SAPLINGS_BOOTSTRAP_MODEL": "gpt-5-mini"
+  }
+}

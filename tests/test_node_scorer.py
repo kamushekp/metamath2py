@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+from math import isclose
+
+from examples.classes.A0K0 import A0K0
+from metamath2py.classes.VLEL import VLEL
+
+from saplings.node_scorer import NodeScorer
+from saplings.dtos.node import Node
+from saplings.dtos.proof_state import ProofState, ProofStep
+from saplings.dtos.tasks.create_node_task import CreateNodeTask
+from saplings.dtos.theorem_state import RequiredTheoremPremises, TheoremState
+
+
+def _build_theorem_state() -> TheoremState:
+    base = A0K0()
+    floating = ["ph", "ps", "ch", "th", "ta"]
+    essential = ["essential_1", "essential_2", "essential_3"]
+    required = [
+        RequiredTheoremPremises(left="essential_1", right=base.essential_1),
+        RequiredTheoremPremises(left="essential_2", right=base.essential_2),
+        RequiredTheoremPremises(left="essential_3", right=base.essential_3),
+    ]
+    return TheoremState(
+        label="A0K0_TEMP_SCORE",
+        floating_args=floating,
+        essential_args=essential,
+        required_theorem_premises=required,
+        assertion=base.assertion,
+    )
+
+
+def _partial_proof_missing_last() -> ProofState:
+    base = A0K0()
+    vlel = VLEL()
+    steps = [
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
+        ProofStep(left="x8", right=base.essential_1, comment="essential_1"),
+        ProofStep(left="x9", right=vlel.assertion, comment="VLEL application"),
+        ProofStep(left="x10", right=base.essential_2, comment="essential_2"),
+    ]
+    return ProofState(steps=steps)
+
+
+def _intermediate_proof_state() -> ProofState:
+    steps = [
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
+        ProofStep(left="x8", right="self.essential_1", comment=None),
+        ProofStep(
+            left="x9",
+            right='VLEL().call({"ph": x6, "ps": x7}, {"essential_1": x8})',
+            comment=None,
+        ),
+        ProofStep(left="x10", right="self.essential_2", comment=None),
+        ProofStep(left="x11", right="self.essential_3", comment=None),
+    ]
+    return ProofState(steps=steps)
+
+
+def _full_proof_state() -> ProofState:
+
+    steps = [
+        ProofStep(left="x1", right='"wff ps"', comment=None),
+        ProofStep(left="x2", right='"wff ph"', comment=None),
+        ProofStep(left="x3", right='"wff ch"', comment=None),
+        ProofStep(left="x4", right='"wff th"', comment=None),
+        ProofStep(left="x5", right='"wff ta"', comment=None),
+        ProofStep(left="x6", right='"wff ph"', comment=None),
+        ProofStep(left="x7", right='"wff ps"', comment=None),
+        ProofStep(left="x8", right="self.essential_1", comment=None),
+        ProofStep(
+            left="x9",
+            right='VLEL().call({"ph": x6, "ps": x7}, {"essential_1": x8})',
+            comment=None,
+        ),
+        ProofStep(left="x10", right="self.essential_2", comment=None),
+        ProofStep(left="x11", right="self.essential_3", comment=None),
+        ProofStep(left="x12", right='''SW6P().call({"ph": x1, "ps": x2, "ch": x3, "th": x4, "ta": x5}, {"essential_1": x9, "essential_2": x10, "essential_3": x11})''', comment=None),
+    ]
+    return ProofState(steps=steps)
+
+
+def test_node_scorer_assigns_higher_score_to_more_complete_proof():
+    theorem_state = _build_theorem_state()
+
+    partial_task = CreateNodeTask(
+        goal="Score partial proof",
+        theorem=theorem_state,
+        proof=_partial_proof_missing_last(),
+    )
+    intermediate_task = CreateNodeTask(
+        goal="Score intermediate proof",
+        theorem=theorem_state,
+        proof=_intermediate_proof_state(),
+    )
+    full_task = CreateNodeTask(
+        goal="Score full proof",
+        theorem=theorem_state,
+        proof=_full_proof_state(),
+    )
+
+    root_node = Node(created_node_task=partial_task)
+    intermediate_node = Node(created_node_task=intermediate_task, parent_node=root_node)
+    full_node = Node(created_node_task=full_task, parent_node=intermediate_node)
+
+    scorer = NodeScorer()
+    partial_score = scorer.score(root_node)
+    intermediate_score = scorer.score(intermediate_node)
+    full_score = scorer.score(full_node)
+
+    assert intermediate_score.score > partial_score.score
+    assert full_score.score > intermediate_score.score
+    assert isclose(full_score.verify_progress, 1.0)
+
+
+def test_node_scorer_separates_nodes_with_same_verify_stage():
+    theorem_state = _build_theorem_state()
+
+    less_complete = ProofState(steps=_intermediate_proof_state().steps[:-1])
+    more_complete = _intermediate_proof_state()
+
+    less_task = CreateNodeTask(
+        goal="Less complete execution-stage proof",
+        theorem=theorem_state,
+        proof=less_complete,
+    )
+    more_task = CreateNodeTask(
+        goal="More complete execution-stage proof",
+        theorem=theorem_state,
+        proof=more_complete,
+    )
+
+    less_node = Node(created_node_task=less_task)
+    more_node = Node(created_node_task=more_task, parent_node=less_node)
+
+    scorer = NodeScorer()
+    less_score = scorer.score(less_node)
+    more_score = scorer.score(more_node)
+
+    assert less_score.stage == more_score.stage
+    assert less_score.stage is not None
+    assert less_score.stage.value == "execution"
+    assert more_score.verify_progress == less_score.verify_progress
+    assert more_score.structural_progress > less_score.structural_progress
+    assert more_score.score > less_score.score
+

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="utf-8">
+  <title>Saplings Auto Viewer</title>
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f172a;
+      --border: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Space Grotesk", "DM Sans", "SF Pro Display", sans-serif;
+    }
+
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #0a101d;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    #layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      height: calc(100vh - 58px);
+    }
+
+    #graph {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-height: 420px;
+      box-shadow: var(--shadow);
+    }
+
+    .stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: auto;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 16px;
+      letter-spacing: 0.2px;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 1024px) {
+      #layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <span id="status" class="pill">...</span>
+    <span id="auto-run" class="pill">...</span>
+    <span id="counts" class="pill">...</span>
+    <span id="model-info" class="pill">...</span>
+    <span id="session-info" class="pill">...</span>
+    <span id="message" class="pill"></span>
+  </header>
+  <div id="layout">
+    <div id="graph"></div>
+    <div class="stack">
+      <div class="panel">
+        <h3>Детали узла/ребра</h3>
+        <pre id="details-pre">Выберите узел или ребро</pre>
+      </div>
+      <div class="panel">
+        <h3>Лог выполнения</h3>
+        <pre id="events-pre">Ожидание запуска...</pre>
+      </div>
+    </div>
+  </div>
+  <script>
+    let lastPayload = null;
+    let lastEventKey = '';
+    const eventLines = [];
+    const EVENT_LOG_LIMIT = 120;
+    const POLL_MS = 850;
+
+    const cy = cytoscape({
+      container: document.getElementById('graph'),
+      nodeDimensionsIncludeLabels: true,
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'background-color': '#22d3ee',
+            'label': 'data(label)',
+            'color': '#0b1220',
+            'font-size': 11,
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'text-justification': 'left',
+            'width': 'label',
+            'height': 'label',
+            'padding': '16px',
+            'shape': 'roundrectangle',
+            'text-wrap': 'wrap',
+            'text-max-width': 400,
+            'text-background-color': '#0b1220',
+            'text-background-opacity': 0.75,
+            'text-background-padding': '6px',
+            'text-background-shape': 'roundrectangle'
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 2,
+            'curve-style': 'bezier',
+            'line-color': '#94a3b8',
+            'target-arrow-color': '#94a3b8',
+            'target-arrow-shape': 'triangle',
+            'label': 'data(label)',
+            'font-size': 10,
+            'color': '#e2e8f0',
+            'text-wrap': 'wrap',
+            'text-max-width': 160,
+            'text-background-color': '#0b1220',
+            'text-background-opacity': 0.7,
+            'text-background-padding': '3px',
+            'text-background-shape': 'roundrectangle'
+          }
+        },
+        { selector: ':selected', style: { 'border-width': 2, 'border-color': '#fbbf24' } }
+      ],
+      layout: { name: 'breadthfirst', directed: true, padding: 12 }
+    });
+
+    function setMessage(text) {
+      document.getElementById('message').textContent = text || '';
+    }
+
+    function appendEventLine(line) {
+      eventLines.push(line);
+      if (eventLines.length > EVENT_LOG_LIMIT) {
+        eventLines.shift();
+      }
+      document.getElementById('events-pre').textContent = eventLines.join('\n');
+    }
+
+    function buildEventKey(event) {
+      return JSON.stringify([
+        event.kind || '',
+        event.step_index ?? 0,
+        event.node_id || '',
+        event.parent_id || '',
+        event.expanded_node_id || '',
+        event.first_child_id || '',
+        event.best_node_id || '',
+      ]);
+    }
+
+    function formatEvent(payload) {
+      const event = payload.last_event;
+      const runtime = payload.runtime || {};
+      if (!event) {
+        return `[${runtime.step_index ?? 0}] snapshot: status=${payload.status}`;
+      }
+      const kind = event.kind || "event";
+      if (kind === "expanded_node") {
+        return `[${event.step_index}] expanded ${event.expanded_node_id}: +${event.new_children} children, acceptedΔ=${event.accepted_delta}, rejectedΔ=${event.rejected_delta}, skipped=${event.skipped_dead_ends}`;
+      }
+      if (kind === "reveal_pending_child") {
+        return `[${event.step_index}] reveal child ${event.node_id} (parent=${event.parent_id})`;
+      }
+      if (kind === "solution_found") {
+        return `[${event.step_index}] solution on node ${event.node_id}, skipped=${event.skipped_dead_ends}`;
+      }
+      if (kind === "frontier_exhausted") {
+        return `[${event.step_index}] frontier exhausted, best=${event.best_node_id}, solved=${event.is_solution}`;
+      }
+      return `[${runtime.step_index ?? 0}] ${kind}`;
+    }
+
+    function render(payload) {
+      lastPayload = payload;
+      const elements = payload.elements || [];
+      cy.json({ elements });
+      cy.layout({ name: 'breadthfirst', directed: true, padding: 16, spacingFactor: 1.3 }).run();
+      updateNodeSizing();
+
+      const statusText = payload.status === 'finished' ? 'Готово' :
+        payload.status === 'error' ? 'Ошибка' : 'Работает';
+      document.getElementById('status').textContent = `Статус: ${statusText}`;
+
+      const auto = payload.auto_run || {};
+      const autoText = `Автозапуск: ${auto.steps_done ?? 0}/${auto.max_steps ?? 0} · ${auto.running ? 'идет' : 'остановлен'} · delay=${auto.step_delay_ms ?? 0}ms`;
+      document.getElementById('auto-run').textContent = autoText;
+
+      const nodesCount = payload.counts?.nodes ?? 0;
+      const edgesCount = payload.counts?.edges ?? 0;
+      const patchesOk = payload.counts?.patches_accepted ?? 0;
+      const patchesBad = payload.counts?.patches_rejected ?? 0;
+      const stepIndex = payload.runtime?.step_index ?? 0;
+      const frontier = payload.runtime?.frontier_size ?? 0;
+      document.getElementById('counts').textContent = `${nodesCount} узлов · ${edgesCount} ребер · патчи ${patchesOk}✓/${patchesBad}✕ · шаг=${stepIndex} · frontier=${frontier}`;
+
+      const env = payload.run_config?.env_overrides || {};
+      const primaryModel = env.SAPLINGS_PRIMARY_MODEL || 'default';
+      const cheapModel = env.SAPLINGS_CHEAP_MODEL || 'default';
+      const bootstrapModel = env.SAPLINGS_BOOTSTRAP_MODEL || 'default';
+      document.getElementById('model-info').textContent = `models: ${primaryModel} | ${cheapModel} | ${bootstrapModel}`;
+
+      const sessionPath = payload.session_config?.path || 'n/a';
+      const logPath = payload.session_config?.step_log_path || 'n/a';
+      document.getElementById('session-info').textContent = `config: ${sessionPath} · log: ${logPath}`;
+
+      setMessage(payload.error ? `Ошибка: ${payload.error}` : '');
+
+      if (payload.last_event) {
+        const eventKey = buildEventKey(payload.last_event);
+        if (eventKey !== lastEventKey) {
+          appendEventLine(formatEvent(payload));
+          lastEventKey = eventKey;
+        }
+      }
+
+      if (payload.last_result) {
+        document.getElementById('details-pre').textContent = JSON.stringify(payload.last_result, null, 2);
+      }
+    }
+
+    async function pollState() {
+      try {
+        const response = await fetch('/state');
+        if (!response.ok) {
+          setMessage(`Ошибка /state: ${response.status}`);
+          return;
+        }
+        const payload = await response.json();
+        render(payload);
+      } catch (e) {
+        setMessage('Не удалось получить состояние');
+      }
+    }
+
+    cy.on('tap', 'node', function (evt) {
+      const data = evt.target.data();
+      document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
+    });
+
+    cy.on('tap', 'edge', function (evt) {
+      const data = evt.target.data();
+      document.getElementById('details-pre').textContent = JSON.stringify(data, null, 2);
+    });
+
+    function updateNodeSizing() {
+      const maxWidth = Math.min(Math.max(Math.floor(window.innerWidth * 0.45), 320), 800);
+      cy.style().selector('node').style({ 'text-max-width': `${maxWidth}px`, 'padding': '18px' }).update();
+    }
+
+    window.addEventListener('resize', updateNodeSizing);
+    document.addEventListener('DOMContentLoaded', () => {
+      pollState();
+      setInterval(pollState, POLL_MS);
+    });
+  </script>
+</body>
+
+</html>

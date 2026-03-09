@@ -1,0 +1,5 @@
+/metamath2py/
+/database/data/nodes
+/database/data/*.conf
+.idea
+.pyc

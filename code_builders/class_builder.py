@@ -212,7 +212,9 @@ class ClassBuilder:
     @staticmethod
     def build_imports(statement_name: str, imported_statements: List[str]) -> str:
         default_import = f'''from metamath2py.classes.{statement_name} import {statement_name}\n'''
-        imported_statements = [f'from metamath2py.classes.{name} import {name}' for name in set(imported_statements)]
+        # Preserve the first-seen order of imported statements for deterministic output.
+        ordered_unique = list(dict.fromkeys(imported_statements))
+        imported_statements = [f'from metamath2py.classes.{name} import {name}' for name in ordered_unique]
         imported_statements = '\n'.join(imported_statements)
         imported_statements = default_import + imported_statements + '\n'
         return imported_statements
