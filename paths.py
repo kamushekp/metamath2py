@@ -10,6 +10,7 @@ PROJECT_PATH = from_here()
 
 class_variables_path = os.path.join(PROJECT_PATH, 'code_builders','class_variables.csv')
 pythonic_names_map_path = os.path.join(PROJECT_PATH, 'code_builders', 'pythonic_names_map.csv')
+floating_names_map_path = os.path.join(PROJECT_PATH, 'code_builders', 'floating_names_map.csv')
 
 
 class PathsEnum(StrEnum):
